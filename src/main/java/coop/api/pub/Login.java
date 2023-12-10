@@ -1,18 +1,23 @@
-package coop;
+package coop.api.pub;
 
+import coop.database.repository.AuthorityRepository;
+import coop.database.repository.UserRepository;
+import coop.database.table.Authority;
+import coop.database.table.User;
 import coop.security.JwtTokenUtil;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
-import org.springframework.security.core.userdetails.User;
-import org.springframework.security.core.userdetails.UserDetails;
-import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.security.provisioning.JdbcUserDetailsManager;
+import org.springframework.transaction.annotation.EnableTransactionManagement;
 import org.springframework.web.bind.annotation.*;
 
+import org.springframework.transaction.annotation.Transactional;
+
 @RestController
+@EnableTransactionManagement
+@Transactional
 public class Login {
 
     @Autowired
@@ -25,13 +30,12 @@ public class Login {
     JwtTokenUtil jwt;
 
     @Autowired
-    UserDetailsService userDetailsService;
+    UserRepository userRepository;
 
-    @RequestMapping("/login")
-    String home() {
-        return "You must login!!";
-    }
+    @Autowired
+    AuthorityRepository authorityRepository;
 
+    @Transactional
     @PostMapping("/login")
     public AuthResponse login(@RequestBody LoginRequest loginRequest) {
 
@@ -43,18 +47,23 @@ public class Login {
         return new AuthResponse(jwt.generateToken(user));
     }
 
+    @Transactional
     @PostMapping("/register")
     public String register(@RequestBody RegistrationRequest registration) {
 
-        UserDetails details = User.builder()
-                .username(registration.username())
-                .password(encoder.encode(registration.password()))
-                .disabled(false)
-                .authorities("USER")
-                .build();
+        User user = new User();
+        user.setUsername(registration.username);
+        user.setPassword(encoder.encode(registration.password()));
+        user.setEnabled(true);
+        userRepository.persist(user);
 
-        ((JdbcUserDetailsManager) userDetailsService).createUser(details);
-        return jwt.generateToken(details);
+        Authority authority = new Authority();
+        authority.setUser(user);
+        authority.setAuthority("USER");
+        authorityRepository.persist(authority);
+
+        userRepository.flush();
+        return jwt.generateToken(user);
     }
 
     public record LoginRequest(String username, String password) {

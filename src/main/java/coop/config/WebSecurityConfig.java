@@ -1,0 +1,65 @@
+package coop.config;
+
+import coop.security.AuthenticationFilter;
+import coop.security.UserAuthenticationManager;
+import coop.security.AuthContext;
+import org.springframework.context.annotation.Configuration;
+
+import org.springframework.security.config.Customizer;
+import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+import org.springframework.context.annotation.Bean;
+import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.crypto.factory.PasswordEncoderFactories;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.web.cors.CorsConfiguration;
+import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
+
+import org.springframework.web.cors.CorsConfigurationSource;
+
+@Configuration
+@EnableWebSecurity
+public class WebSecurityConfig {
+    @Bean
+    public SecurityFilterChain securityFilterChain(HttpSecurity http, AuthenticationFilter authenticationFilter) throws Exception {
+        return http
+                .cors(Customizer.withDefaults())
+                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .authorizeHttpRequests((authorize) -> authorize
+                        .requestMatchers("/login", "/register", "/pub/**").permitAll()
+                        .requestMatchers("/pi/**").hasAuthority("PI")
+                        .anyRequest().hasAuthority("USER")
+                )
+                .addFilterBefore(authenticationFilter, UsernamePasswordAuthenticationFilter.class)
+                .csrf(csrf -> csrf.ignoringRequestMatchers("/**"))
+                .build();
+    }
+
+    @Bean
+    public PasswordEncoder passwordEncoder() {
+        return PasswordEncoderFactories.createDelegatingPasswordEncoder();
+    }
+
+    @Bean
+    public UserAuthenticationManager userAuthenticationManager() {
+        return new UserAuthenticationManager();
+    }
+
+    @Bean
+    CorsConfigurationSource corsConfigurationSource() {
+        final UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        CorsConfiguration config = new CorsConfiguration();
+        config.addAllowedHeader("*");
+        config.addAllowedMethod("*");
+        config.addAllowedOrigin("http://localhost:3000");
+        source.registerCorsConfiguration("/**", config);
+        return source;
+    }
+
+    @Bean
+    public AuthContext authContext() {
+        return new AuthContext();
+    }
+}
