@@ -1,7 +1,7 @@
 package coop.security;
 
 import com.google.common.collect.Streams;
-import coop.database.repository.PiRepository;
+import coop.database.repository.CoopRepository;
 import coop.database.repository.UserRepository;
 import coop.database.table.Pi;
 import coop.database.table.User;
@@ -35,7 +35,7 @@ public class AuthenticationFilter extends OncePerRequestFilter {
     private UserRepository userRepository;
 
     @Autowired
-    private PiRepository piRepository;
+    private CoopRepository piRepository;
 
     @Autowired
     private JwtTokenUtil jwt;
@@ -47,10 +47,6 @@ public class AuthenticationFilter extends OncePerRequestFilter {
             if (authHeader != null) {
                 if (authHeader.startsWith("Bearer ")) {
                     authorizeBearerToken(request, authHeader);
-                }
-
-                if (authHeader.startsWith("AsymmetricKey ")) {
-                    authorizeAsymmetricKey(request, authHeader);
                 }
             }
 
@@ -74,37 +70,6 @@ public class AuthenticationFilter extends OncePerRequestFilter {
             }
 
         } catch (JwtException e) {
-            //TODO: ...
-        }
-    }
-
-    private void authorizeAsymmetricKey(HttpServletRequest request, String authHeader) {
-
-        try {
-
-            Security.addProvider(new org.bouncycastle.jce.provider.BouncyCastleProvider());
-
-            String header = authHeader.replaceFirst("AsymmetricKey ", "");
-            CMSSignedData signedPiId = new CMSSignedData(Base64.getDecoder().decode(header));
-            String piId = new String((byte[]) signedPiId.getSignedContent().getContent());
-
-            Pi pi = piRepository.findById(piId);
-            PublicKey publicKey = pi.getPublicKey().getPublicKey();
-            SignerInformationVerifier verifier = new JcaSimpleSignerInfoVerifierBuilder().setProvider("BC").build(publicKey);
-
-            boolean valid = Streams.stream(signedPiId.getSignerInfos().iterator())
-                    .allMatch(info -> verify(info, verifier));
-
-            if (valid) {
-                SecurityContext context = SecurityContextHolder.createEmptyContext();
-                PiAuthenticationToken token = new PiAuthenticationToken(pi);
-                token.setAuthenticated(true);
-                token.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
-                context.setAuthentication(token);
-                SecurityContextHolder.setContext(context);
-            }
-
-        } catch (CMSException | OperatorCreationException e) {
             //TODO: ...
         }
     }

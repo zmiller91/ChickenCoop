@@ -13,18 +13,9 @@ import javax.persistence.*;
 public class Pi {
 
     @Id
-    @GeneratedValue(generator = "uuid")
-    @GenericGenerator(name = "uuid", strategy = "uuid")
-    @Column(columnDefinition = "CHAR(32)", name = "pi_id")
+    @Column(name = "PI_ID")
     public String id;
 
-    @ManyToOne
-    @JoinColumn(name="user_id")
-    User user;
-
-    public String name;
-
-    @OneToOne
-    @JoinColumn(name="public_key_id")
-    public PublicKey publicKey;
+    @Column(name = "AWS_IOT_THING_ID")
+    String awsIotThingId;
 }

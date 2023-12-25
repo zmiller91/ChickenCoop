@@ -1,13 +1,28 @@
 package coop.api.auth;
 
+import com.amazonaws.services.iotdata.AWSIotData;
+import com.amazonaws.services.iotdata.model.GetThingShadowRequest;
+import com.amazonaws.services.iotdata.model.GetThingShadowResult;
+import com.amazonaws.services.iotdata.model.UpdateThingShadowRequest;
+import com.google.gson.Gson;
+import coop.database.repository.CoopRepository;
 import coop.database.repository.PiRepository;
+import coop.database.table.Coop;
 import coop.database.table.Pi;
+import coop.exception.BadRequest;
+import coop.exception.NotFound;
+import coop.pi.config.CoopConfig;
+import coop.pi.config.IotShadowRequest;
+import coop.pi.config.IotState;
 import coop.security.AuthContext;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.EnableTransactionManagement;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
+import java.nio.ByteBuffer;
+import java.nio.charset.CharsetEncoder;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 
 @EnableTransactionManagement
@@ -17,20 +32,33 @@ import java.util.List;
 public class CoopService {
 
     @Autowired
+    private CoopRepository coopRepository;
+
+    @Autowired
     private PiRepository piRepository;
 
     @Autowired
     private AuthContext userContext;
 
-    @PostMapping("/create")
-    public CreateCoopResponse create(@RequestBody  CreateCoopRequest request) {
-        Pi coop = piRepository.create(userContext.getCurrentUser(), request.name);
-        return new CreateCoopResponse(new CoopDAO(coop.getId(), coop.getName()));
+    @Autowired
+    private AWSIotData awsIot;
+
+    @PostMapping("/register")
+    public RegisterCoopResponse create(@RequestBody RegisterCoopRequest request) {
+
+
+        Pi pi = piRepository.findById(request.id);
+        if (pi == null) {
+            throw new BadRequest("Serial number not found.");
+        }
+
+        Coop coop = coopRepository.create(userContext.getCurrentUser(), request.name, pi);
+        return new RegisterCoopResponse(new CoopDAO(coop.getId(), coop.getName()));
     }
 
     @GetMapping("/list")
     public ListCoopResponse list() {
-         List<CoopDAO> coops = piRepository.list(userContext.getCurrentUser())
+         List<CoopDAO> coops = coopRepository.list(userContext.getCurrentUser())
                  .stream()
                  .map(c -> new CoopDAO(c.getId(), c.getName()))
                  .toList();
@@ -38,12 +66,64 @@ public class CoopService {
          return new ListCoopResponse(coops);
     }
 
-    public record CreateCoopRequest(String name) {}
-    public record CreateCoopResponse(CoopDAO coop){}
+    @GetMapping("/settings/{coopId}")
+    public GetCoopSettingsResponse getSettings(@PathVariable("coopId") String coopId) {
+        Coop coop = coopRepository.findById(userContext.getCurrentUser(), coopId);
+        if(coop == null) {
+            throw new NotFound("Coop not found.");
+        }
 
+        GetThingShadowRequest request = new GetThingShadowRequest();
+        request.setThingName(coop.getPi().getAwsIotThingId());
+        GetThingShadowResult result = awsIot.getThingShadow(request);
+        String data = StandardCharsets.UTF_8.decode(result.getPayload()).toString();
 
-    public record ListCoopRequest() {}
+        Gson gson = new Gson();
+        IotShadowRequest body = gson.fromJson(data, IotShadowRequest.class);
+        String message = body.getState().getDesired().getWelcome();
+
+        CoopSettingsDAO dao = new CoopSettingsDAO(message);
+        GetCoopSettingsResponse response = new GetCoopSettingsResponse(dao);
+        return response;
+    }
+
+    @PostMapping("/settings/{coopId}")
+    public UpdateCoopSettingsResponse updateCoopSettings(@PathVariable("coopId") String coopId, @RequestBody UpdateCoopSettingsRequest request) {
+
+        Coop coop = coopRepository.findById(userContext.getCurrentUser(), coopId);
+        if(coop == null) {
+            throw new NotFound("Coop not found.");
+        }
+
+        CoopConfig coopConfig = new CoopConfig();
+        coopConfig.setWelcome(request.settings.message);
+
+        IotState state = new IotState();
+        state.setDesired(coopConfig);
+
+        IotShadowRequest iotShadowRequest = new IotShadowRequest();
+        iotShadowRequest.setState(state);
+
+        UpdateThingShadowRequest updateRequest = new UpdateThingShadowRequest();
+        updateRequest.setThingName(coop.getPi().getAwsIotThingId());
+        updateRequest.setPayload(ByteBuffer.wrap(new Gson().toJson(iotShadowRequest).getBytes()));
+        awsIot.updateThingShadow(updateRequest);
+
+        return new UpdateCoopSettingsResponse(request.settings);
+    }
+
+    public record RegisterCoopRequest(String id, String name) {}
+    public record RegisterCoopResponse(CoopDAO coop){}
+
     public record ListCoopResponse(List<CoopDAO> coops){}
 
     public record CoopDAO(String id, String name){};
+
+    public record CoopSettingsDAO(String message){};
+    public record GetCoopSettingsResponse(CoopSettingsDAO settings){};
+
+    public record UpdateCoopSettingsRequest(CoopSettingsDAO settings){};
+    public record UpdateCoopSettingsResponse(CoopSettingsDAO settings){};
+
+
 }

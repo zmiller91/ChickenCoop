@@ -1,18 +1,20 @@
-//package coop.config;
-//
-//import coop.config.pi.PiFilter;
-//import jakarta.servlet.Filter;
-//import org.springframework.context.annotation.Bean;
-//import org.springframework.context.annotation.Configuration;
-//import org.springframework.web.servlet.config.annotation.EnableWebMvc;
-//import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
-//
-//@Configuration
-//@EnableWebMvc
-//public class WebConfig implements WebMvcConfigurer {
-//
-//    @Bean
-//    public Filter piFilter() {
-//        return new PiFilter();
-//    }
-//}
+package coop.config;
+
+import com.amazonaws.services.iotdata.AWSIotData;
+import com.amazonaws.services.iotdata.AWSIotDataClient;
+import com.amazonaws.services.iotdata.AWSIotDataClientBuilder;
+import org.springframework.boot.jdbc.DataSourceBuilder;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+
+import javax.sql.DataSource;
+
+
+@Configuration
+public class WebConfig {
+
+    @Bean
+    public AWSIotData awsIotData() {
+        return AWSIotDataClientBuilder.defaultClient();
+    }
+}

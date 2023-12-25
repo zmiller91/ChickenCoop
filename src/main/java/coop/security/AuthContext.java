@@ -32,18 +32,6 @@ public class AuthContext {
         return ((UserAuthenticationToken) getAuthentication()).getPrincipal();
     }
 
-    public boolean isPiAuthenticationType() {
-        return PiAuthenticationToken.class.equals(getAuthenticatedClass());
-    }
-
-    public Pi getCurrentPi() {
-        if (!isPiAuthenticationType()) {
-            return null;
-        }
-
-        return ((PiAuthenticationToken) getAuthentication()).getPrincipal();
-    }
-
 
 
 

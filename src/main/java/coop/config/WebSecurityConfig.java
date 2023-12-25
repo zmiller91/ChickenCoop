@@ -3,6 +3,7 @@ package coop.config;
 import coop.security.AuthenticationFilter;
 import coop.security.UserAuthenticationManager;
 import coop.security.AuthContext;
+import jakarta.servlet.DispatcherType;
 import org.springframework.context.annotation.Configuration;
 
 import org.springframework.security.config.Customizer;
@@ -28,6 +29,7 @@ public class WebSecurityConfig {
                 .cors(Customizer.withDefaults())
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests((authorize) -> authorize
+                        .dispatcherTypeMatchers(DispatcherType.ERROR).permitAll()
                         .requestMatchers("/login", "/register", "/pub/**").permitAll()
                         .requestMatchers("/pi/**").hasAuthority("PI")
                         .anyRequest().hasAuthority("USER")

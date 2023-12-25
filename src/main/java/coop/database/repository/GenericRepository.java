@@ -33,6 +33,7 @@ public abstract class GenericRepository<T> {
         sessionFactory.getCurrentSession().flush();
     }
 
+
     public T findById(Serializable id) {
         return sessionFactory.getCurrentSession().get(getObjClass(), id);
     }

@@ -18,13 +18,29 @@ CREATE TABLE IF NOT EXISTS `authorities` (
     CONSTRAINT `AUTHORITIES_FK1` FOREIGN KEY (`USER_ID`) REFERENCES `users` (`USER_ID`)
  );
  
+ CREATE TABLE IF NOT EXISTS `pis` (
+	`PI_ID` varchar(32) NOT NULL,
+    `AWS_IOT_THING_ID` VARCHAR(256) NOT NULL,
+	PRIMARY KEY (`PI_ID`),
+    UNIQUE KEY `PIS UNIQUE` (`AWS_IOT_THING_ID`)
+ );
  
 CREATE TABLE IF NOT EXISTS `coops` (
 	`COOP_ID` varchar(32) NOT NULL,
     `USER_ID` varchar(128) NOT NULL,
     `NAME` varchar(128) NOT NULL,
+    `PI_ID` varchar(32) NOT NULL,
     PRIMARY KEY (`COOP_ID`),
-    CONSTRAINT `COOPS_FK1` FOREIGN KEY (`USER_ID`) REFERENCES `users` (`USER_ID`)
+    UNIQUE KEY `COOPS_UNIQUE_PI` (`PI_ID`),
+    CONSTRAINT `COOPS_FK1` FOREIGN KEY (`USER_ID`) REFERENCES `users` (`USER_ID`),
+    CONSTRAINT `COOPS_FK2` FOREIGN KEY (`PI_ID`) REFERENCES `pis` (`PI_ID`)
  );
 
+INSERT INTO PIS
+(`PI_ID`, `AWS_IOT_THING_ID`)
+VALUES
+('lvinnwgukdoesnfiayhdaxvjfoyyping', 'CoopThing');
+
 select * from coops;
+drop table coops;
+drop table public_keys;
