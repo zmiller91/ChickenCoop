@@ -21,7 +21,6 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
 import java.nio.ByteBuffer;
-import java.nio.charset.CharsetEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 
@@ -46,13 +45,18 @@ public class CoopService {
     @PostMapping("/register")
     public RegisterCoopResponse create(@RequestBody RegisterCoopRequest request) {
 
-
         Pi pi = piRepository.findById(request.id);
         if (pi == null) {
             throw new BadRequest("Serial number not found.");
         }
 
         Coop coop = coopRepository.create(userContext.getCurrentUser(), request.name, pi);
+
+        CoopConfig config = new CoopConfig();
+        config.setWelcome("Hello " + userContext.getCurrentUser().getUsername());
+        config.setCoopId(coop.getId());
+        putCoopConfig(coop, config);
+
         return new RegisterCoopResponse(new CoopDAO(coop.getId(), coop.getName()));
     }
 
@@ -98,6 +102,12 @@ public class CoopService {
         CoopConfig coopConfig = new CoopConfig();
         coopConfig.setWelcome(request.settings.message);
 
+        putCoopConfig(coop, coopConfig);
+        return new UpdateCoopSettingsResponse(request.settings);
+    }
+
+    private void putCoopConfig(Coop coop, CoopConfig coopConfig) {
+
         IotState state = new IotState();
         state.setDesired(coopConfig);
 
@@ -107,9 +117,8 @@ public class CoopService {
         UpdateThingShadowRequest updateRequest = new UpdateThingShadowRequest();
         updateRequest.setThingName(coop.getPi().getAwsIotThingId());
         updateRequest.setPayload(ByteBuffer.wrap(new Gson().toJson(iotShadowRequest).getBytes()));
-        awsIot.updateThingShadow(updateRequest);
 
-        return new UpdateCoopSettingsResponse(request.settings);
+        awsIot.updateThingShadow(updateRequest);
     }
 
     public record RegisterCoopRequest(String id, String name) {}
@@ -124,6 +133,5 @@ public class CoopService {
 
     public record UpdateCoopSettingsRequest(CoopSettingsDAO settings){};
     public record UpdateCoopSettingsResponse(CoopSettingsDAO settings){};
-
 
 }

@@ -19,6 +19,7 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 
 @Component
 public class ProcessData {
@@ -41,8 +42,10 @@ public class ProcessData {
     @Autowired
     private MetricRepository metricRepository;
 
-    @Scheduled(fixedRate = 3600)
+    @Scheduled(fixedDelay = 1, timeUnit = TimeUnit.HOURS)
     public void processQueue() {
+
+        System.out.println("\n\n\nProcessing schedule\n\n\n");
 
         ReceiveMessageRequest request = new ReceiveMessageRequest();
         request.setQueueUrl(metricSqsUrl);
