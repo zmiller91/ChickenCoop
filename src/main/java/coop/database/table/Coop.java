@@ -10,7 +10,7 @@ import javax.persistence.*;
 @Setter
 @Entity
 @Table(name = "coops")
-public class Coop implements UserScopedTable {
+public class Coop implements AuthorizerScopedTable {
 
     @Id
     @GeneratedValue(generator = "uuid")

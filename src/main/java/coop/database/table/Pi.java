@@ -14,8 +14,11 @@ public class Pi {
 
     @Id
     @Column(name = "PI_ID")
-    public String id;
+    private String id;
 
     @Column(name = "AWS_IOT_THING_ID")
-    String awsIotThingId;
+    private String awsIotThingId;
+
+    @Column(name = "CLIENT_ID")
+    private String clientId;
 }

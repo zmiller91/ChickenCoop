@@ -21,8 +21,10 @@ CREATE TABLE IF NOT EXISTS `authorities` (
  CREATE TABLE IF NOT EXISTS `pis` (
 	`PI_ID` varchar(32) NOT NULL,
     `AWS_IOT_THING_ID` VARCHAR(256) NOT NULL,
+    `CLIENT_ID` varchar(32) NOT NULL,
 	PRIMARY KEY (`PI_ID`),
-    UNIQUE KEY `PIS UNIQUE` (`AWS_IOT_THING_ID`)
+    UNIQUE KEY `PIS UNIQUE` (`AWS_IOT_THING_ID`),
+    UNIQUE KEY `PIS UNIQUE CLIENT_ID` (`CLIENT_ID`)
  );
  
 CREATE TABLE IF NOT EXISTS `coops` (
@@ -35,12 +37,13 @@ CREATE TABLE IF NOT EXISTS `coops` (
     CONSTRAINT `COOPS_FK1` FOREIGN KEY (`USER_ID`) REFERENCES `users` (`USER_ID`),
     CONSTRAINT `COOPS_FK2` FOREIGN KEY (`PI_ID`) REFERENCES `pis` (`PI_ID`)
  );
-
-INSERT INTO PIS
-(`PI_ID`, `AWS_IOT_THING_ID`)
-VALUES
-('lvinnwgukdoesnfiayhdaxvjfoyyping', 'CoopThing');
-
-select * from coops;
-drop table coops;
-drop table public_keys;
+ 
+CREATE TABLE IF NOT EXISTS `metrics` (
+	`DT` bigint NOT NULL,
+	`COOP_ID` varchar(32) NOT NULL,
+    `COMPONENT_ID` varchar(32) NOT NULL,
+    `METRIC` varchar(32) NOT NULL,
+    `VALUE` bigint NOT NULL,
+    PRIMARY KEY (`DT`, `COOP_ID`, `COMPONENT_ID`, `METRIC`),
+    CONSTRAINT `METRICS_FK1` FOREIGN KEY (`COOP_ID`) REFERENCES `coops` (`COOP_ID`)
+ );

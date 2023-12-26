@@ -12,7 +12,7 @@ import java.util.List;
 @Repository
 @EnableTransactionManagement
 @Transactional
-public class CoopRepository extends UserScopedRepository<Coop> {
+public class CoopRepository extends AuthorizerScopedRepository<Coop> {
 
     public Coop create(User user, String name, Pi pi) {
         Coop coop = new Coop();
