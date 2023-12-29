@@ -18,6 +18,8 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
+import java.time.*;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
@@ -42,7 +44,7 @@ public class ProcessData {
     @Autowired
     private MetricRepository metricRepository;
 
-    @Scheduled(fixedDelay = 1, timeUnit = TimeUnit.HOURS)
+    @Scheduled(fixedDelay = 5, initialDelay = 0, timeUnit = TimeUnit.MINUTES)
     public void processQueue() {
 
         System.out.println("\n\n\nProcessing schedule\n\n\n");
@@ -66,8 +68,22 @@ public class ProcessData {
             if (pi != null) {
                 Coop coop = coopRepository.findById(pi, metric.getCoopId());
                 if(coop != null) {
+
+                    Instant instant = Instant.ofEpochMilli(metric.getDt());
+                    ZonedDateTime zdt = instant.atZone(ZoneId.of("America/Chicago"));
+                    DateTimeFormatter yearFormat = DateTimeFormatter.ofPattern("yyyy");
+                    DateTimeFormatter monthFormat = DateTimeFormatter.ofPattern("yyyyMM");
+                    DateTimeFormatter dayFormat = DateTimeFormatter.ofPattern("yyyyMMdd");
+                    DateTimeFormatter hourFormat = DateTimeFormatter.ofPattern("yyyyMMddhh");
+
                     CoopMetric coopMetric = new CoopMetric();
+
                     coopMetric.setDt(metric.getDt());
+                    coopMetric.setYear(Integer.parseInt(yearFormat.format(zdt)));
+                    coopMetric.setMonth(Integer.parseInt(monthFormat.format(zdt)));
+                    coopMetric.setDay(Integer.parseInt(dayFormat.format(zdt)));
+                    coopMetric.setHour(Integer.parseInt(hourFormat.format(zdt)));
+
                     coopMetric.setCoop(coop);
                     coopMetric.setComponentId(metric.getComponentId());
                     coopMetric.setMetric(metric.getMetric());

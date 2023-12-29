@@ -16,6 +16,18 @@ public class CoopMetric implements Serializable {
     @Column(name="DT")
     private long dt;
 
+    @Column(name="YEAR")
+    private int year;
+
+    @Column(name="MONTH")
+    private int month;
+
+    @Column(name="DAY")
+    private int day;
+
+    @Column(name="HOUR")
+    private int hour;
+
     @Id
     @OneToOne
     @JoinColumn(name="COOP_ID")
@@ -30,6 +42,6 @@ public class CoopMetric implements Serializable {
     private String metric;
 
     @Column(name="VALUE")
-    private long value;
+    private Double value;
 
 }

@@ -9,5 +9,5 @@ public class Metric {
     private String coopId;
     private String componentId;
     private String metric;
-    private Long value;
+    private Double value;
 }

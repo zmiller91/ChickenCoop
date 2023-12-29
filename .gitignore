@@ -1,4 +1,5 @@
 certs/
+sql/ignore/
 *.idea
 target/
 !.mvn/wrapper/maven-wrapper.jar

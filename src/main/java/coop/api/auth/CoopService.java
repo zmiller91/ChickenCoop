@@ -6,8 +6,10 @@ import com.amazonaws.services.iotdata.model.GetThingShadowResult;
 import com.amazonaws.services.iotdata.model.UpdateThingShadowRequest;
 import com.google.gson.Gson;
 import coop.database.repository.CoopRepository;
+import coop.database.repository.MetricRepository;
 import coop.database.repository.PiRepository;
 import coop.database.table.Coop;
+import coop.database.table.CoopMetric;
 import coop.database.table.Pi;
 import coop.exception.BadRequest;
 import coop.exception.NotFound;
@@ -22,7 +24,13 @@ import org.springframework.web.bind.annotation.*;
 
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
+import java.time.Instant;
+import java.time.ZoneId;
+import java.time.ZoneOffset;
+import java.time.ZonedDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
+import java.util.stream.Collectors;
 
 @EnableTransactionManagement
 @Transactional
@@ -41,6 +49,9 @@ public class CoopService {
 
     @Autowired
     private AWSIotData awsIot;
+
+    @Autowired
+    MetricRepository metricRepository;
 
     @PostMapping("/register")
     public RegisterCoopResponse create(@RequestBody RegisterCoopRequest request) {
@@ -91,6 +102,27 @@ public class CoopService {
         return response;
     }
 
+    @GetMapping("/data/{coopId}/{metric}")
+    public GetCoopDataResponse getData(@PathVariable("coopId") String coopId, @PathVariable("metric") String metric) {
+        Coop coop = coopRepository.findById(userContext.getCurrentUser(), coopId);
+        if(coop == null) {
+            throw new NotFound("Coop not found.");
+        }
+
+        List<CoopMetricDAO> data = metricRepository.findByMetric(coop, metric).stream()
+                .map(t -> {
+                    Instant metricInstant = Instant.ofEpochMilli(t.getDt());
+                    ZonedDateTime metricDate = ZonedDateTime.ofInstant(metricInstant, ZoneOffset.UTC);
+                    String date = DateTimeFormatter.ofPattern("yyyy-MM-dd hh:mm:ss").withZone(ZoneOffset.ofHours(-6))
+                            .format(metricDate);
+
+                    return new CoopMetricDAO(String.valueOf(t.getValue()), date);
+                }).toList();
+
+
+        return new GetCoopDataResponse(coopId, data);
+    }
+
     @PostMapping("/settings/{coopId}")
     public UpdateCoopSettingsResponse updateCoopSettings(@PathVariable("coopId") String coopId, @RequestBody UpdateCoopSettingsRequest request) {
 
@@ -133,5 +165,9 @@ public class CoopService {
 
     public record UpdateCoopSettingsRequest(CoopSettingsDAO settings){};
     public record UpdateCoopSettingsResponse(CoopSettingsDAO settings){};
+
+    public record GetCoopDataRequest(String coopId, String metric){}
+    public record GetCoopDataResponse(String coopId, List<CoopMetricDAO> data){}
+    public record CoopMetricDAO(String value, String date){}
 
 }
