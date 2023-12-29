@@ -12,7 +12,7 @@ import java.util.List;
 @Repository
 @EnableTransactionManagement
 @Transactional
-public class MetricRepository extends GenericRepository<CoopMetric> {
+public class MetricRepository extends AuthorizerScopedRepository<CoopMetric> {
     @Override
     protected Class<CoopMetric> getObjClass() {
         return CoopMetric.class;

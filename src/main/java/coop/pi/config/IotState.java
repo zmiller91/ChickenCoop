@@ -4,6 +4,6 @@ import lombok.Data;
 
 @Data
 public class IotState {
-    private CoopConfig desired;
-    private CoopConfig reported;
+    private CoopState desired;
+    private CoopState reported;
 }

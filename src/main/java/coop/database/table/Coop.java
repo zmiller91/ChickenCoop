@@ -5,6 +5,7 @@ import lombok.Setter;
 import org.hibernate.annotations.GenericGenerator;
 
 import javax.persistence.*;
+import java.util.List;
 
 @Getter
 @Setter
@@ -27,4 +28,8 @@ public class Coop implements AuthorizerScopedTable {
     public Pi pi;
 
     public String name;
+
+    @OneToMany
+    @JoinColumn(name = "coop_id")
+    List<CoopComponent> components;
 }

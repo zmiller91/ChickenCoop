@@ -9,11 +9,10 @@ import coop.database.repository.CoopRepository;
 import coop.database.repository.MetricRepository;
 import coop.database.repository.PiRepository;
 import coop.database.table.Coop;
-import coop.database.table.CoopMetric;
 import coop.database.table.Pi;
 import coop.exception.BadRequest;
 import coop.exception.NotFound;
-import coop.pi.config.CoopConfig;
+import coop.pi.config.CoopState;
 import coop.pi.config.IotShadowRequest;
 import coop.pi.config.IotState;
 import coop.security.AuthContext;
@@ -25,12 +24,10 @@ import org.springframework.web.bind.annotation.*;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
-import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
-import java.util.stream.Collectors;
 
 @EnableTransactionManagement
 @Transactional
@@ -48,7 +45,7 @@ public class CoopService {
     private AuthContext userContext;
 
     @Autowired
-    private AWSIotData awsIot;
+    private CoopStateProvider coopStateProvider;
 
     @Autowired
     MetricRepository metricRepository;
@@ -63,10 +60,9 @@ public class CoopService {
 
         Coop coop = coopRepository.create(userContext.getCurrentUser(), request.name, pi);
 
-        CoopConfig config = new CoopConfig();
-        config.setWelcome("Hello " + userContext.getCurrentUser().getUsername());
-        config.setCoopId(coop.getId());
-        putCoopConfig(coop, config);
+        CoopState state = coopStateProvider.forCoop(coop);
+        state.setWelcome("Hello " + userContext.getCurrentUser().getUsername());
+        coopStateProvider.put(coop, state);
 
         return new RegisterCoopResponse(new CoopDAO(coop.getId(), coop.getName()));
     }
@@ -88,18 +84,9 @@ public class CoopService {
             throw new NotFound("Coop not found.");
         }
 
-        GetThingShadowRequest request = new GetThingShadowRequest();
-        request.setThingName(coop.getPi().getAwsIotThingId());
-        GetThingShadowResult result = awsIot.getThingShadow(request);
-        String data = StandardCharsets.UTF_8.decode(result.getPayload()).toString();
-
-        Gson gson = new Gson();
-        IotShadowRequest body = gson.fromJson(data, IotShadowRequest.class);
-        String message = body.getState().getDesired().getWelcome();
-
+        String message = coopStateProvider.getReported(coop).getWelcome();
         CoopSettingsDAO dao = new CoopSettingsDAO(message);
-        GetCoopSettingsResponse response = new GetCoopSettingsResponse(dao);
-        return response;
+        return  new GetCoopSettingsResponse(dao);
     }
 
     @GetMapping("/data/{coopId}/{metric}")
@@ -131,26 +118,11 @@ public class CoopService {
             throw new NotFound("Coop not found.");
         }
 
-        CoopConfig coopConfig = new CoopConfig();
-        coopConfig.setWelcome(request.settings.message);
+        CoopState coopState = coopStateProvider.forCoop(coop);
+        coopState.setWelcome(request.settings.message);
+        coopStateProvider.put(coop, coopState);
 
-        putCoopConfig(coop, coopConfig);
         return new UpdateCoopSettingsResponse(request.settings);
-    }
-
-    private void putCoopConfig(Coop coop, CoopConfig coopConfig) {
-
-        IotState state = new IotState();
-        state.setDesired(coopConfig);
-
-        IotShadowRequest iotShadowRequest = new IotShadowRequest();
-        iotShadowRequest.setState(state);
-
-        UpdateThingShadowRequest updateRequest = new UpdateThingShadowRequest();
-        updateRequest.setThingName(coop.getPi().getAwsIotThingId());
-        updateRequest.setPayload(ByteBuffer.wrap(new Gson().toJson(iotShadowRequest).getBytes()));
-
-        awsIot.updateThingShadow(updateRequest);
     }
 
     public record RegisterCoopRequest(String id, String name) {}

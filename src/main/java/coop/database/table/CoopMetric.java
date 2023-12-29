@@ -10,7 +10,7 @@ import java.io.Serializable;
 @Setter
 @Entity
 @Table(name = "metrics")
-public class CoopMetric implements Serializable {
+public class CoopMetric implements Serializable, AuthorizerScopedTable {
 
     @Id
     @Column(name="DT")
@@ -44,4 +44,13 @@ public class CoopMetric implements Serializable {
     @Column(name="VALUE")
     private Double value;
 
+    @Override
+    public User getUser() {
+        return coop.getUser();
+    }
+
+    @Override
+    public Pi getPi() {
+        return coop.getPi();
+    }
 }
