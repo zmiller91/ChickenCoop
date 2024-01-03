@@ -68,27 +68,12 @@ public class ProcessData {
             if (pi != null) {
                 Coop coop = coopRepository.findById(pi, metric.getCoopId());
                 if(coop != null) {
-
-                    Instant instant = Instant.ofEpochMilli(metric.getDt());
-                    ZonedDateTime zdt = instant.atZone(ZoneId.of("America/Chicago"));
-                    DateTimeFormatter yearFormat = DateTimeFormatter.ofPattern("yyyy");
-                    DateTimeFormatter monthFormat = DateTimeFormatter.ofPattern("yyyyMM");
-                    DateTimeFormatter dayFormat = DateTimeFormatter.ofPattern("yyyyMMdd");
-                    DateTimeFormatter hourFormat = DateTimeFormatter.ofPattern("yyyyMMddhh");
-
-                    CoopMetric coopMetric = new CoopMetric();
-
-                    coopMetric.setDt(metric.getDt());
-                    coopMetric.setYear(Integer.parseInt(yearFormat.format(zdt)));
-                    coopMetric.setMonth(Integer.parseInt(monthFormat.format(zdt)));
-                    coopMetric.setDay(Integer.parseInt(dayFormat.format(zdt)));
-                    coopMetric.setHour(Integer.parseInt(hourFormat.format(zdt)));
-
-                    coopMetric.setCoop(coop);
-                    coopMetric.setComponentId(metric.getComponentId());
-                    coopMetric.setMetric(metric.getMetric());
-                    coopMetric.setValue(metric.getValue());
-                    metricRepository.persist(coopMetric);
+                    metricRepository.save(
+                            coop,
+                            metric.getComponentId(),
+                            metric.getDt(),
+                            metric.getMetric(),
+                            metric.getValue());
                 }
             }
 

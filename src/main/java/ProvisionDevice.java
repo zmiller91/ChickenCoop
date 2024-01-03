@@ -7,7 +7,7 @@ import com.amazonaws.services.iot.client.AWSIotQos;
 import com.amazonaws.services.iot.client.sample.sampleUtil.SampleUtil;
 import com.amazonaws.services.iot.model.*;
 import com.google.gson.Gson;
-import coop.pi.config.CoopConfig;
+import coop.pi.config.CoopState;
 import coop.pi.config.IotShadowRequest;
 import coop.pi.config.IotState;
 import org.apache.commons.io.FileUtils;
@@ -15,7 +15,6 @@ import org.apache.commons.lang3.RandomStringUtils;
 
 import java.io.File;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.Paths;
 
 public class ProvisionDevice {
 
@@ -74,7 +73,7 @@ public class ProvisionDevice {
         AWSIotMqttClient mqtt = new AWSIotMqttClient(clientEndpoint, thingClientId, pair.keyStore, pair.keyPassword);
         mqtt.connect();
 
-        CoopConfig config = new CoopConfig();
+        CoopState config = new CoopState();
         IotState state = new IotState();
         state.setDesired(config);
         IotShadowRequest shadowRequest = new IotShadowRequest();

@@ -96,17 +96,7 @@ public class CoopService {
             throw new NotFound("Coop not found.");
         }
 
-        List<CoopMetricDAO> data = metricRepository.findByMetric(coop, metric).stream()
-                .map(t -> {
-                    Instant metricInstant = Instant.ofEpochMilli(t.getDt());
-                    ZonedDateTime metricDate = ZonedDateTime.ofInstant(metricInstant, ZoneOffset.UTC);
-                    String date = DateTimeFormatter.ofPattern("yyyy-MM-dd hh:mm:ss").withZone(ZoneOffset.ofHours(-6))
-                            .format(metricDate);
-
-                    return new CoopMetricDAO(String.valueOf(t.getValue()), date);
-                }).toList();
-
-
+        List<MetricRepository.MetricData> data = metricRepository.findByMetric(coop, metric);
         return new GetCoopDataResponse(coopId, data);
     }
 
@@ -139,7 +129,6 @@ public class CoopService {
     public record UpdateCoopSettingsResponse(CoopSettingsDAO settings){};
 
     public record GetCoopDataRequest(String coopId, String metric){}
-    public record GetCoopDataResponse(String coopId, List<CoopMetricDAO> data){}
-    public record CoopMetricDAO(String value, String date){}
+    public record GetCoopDataResponse(String coopId, List<MetricRepository.MetricData> data){}
 
 }

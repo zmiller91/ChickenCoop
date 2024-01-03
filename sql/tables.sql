@@ -69,6 +69,7 @@ CREATE TABLE IF NOT EXISTS `metrics` (
 	`DT` bigint NOT NULL,
     `YEAR` int NOT NULL,
     `MONTH` int NOT NULL,
+    `WEEK` int NOT NULL,
     `DAY` int NOT NULL,
     `HOUR` int NOT NULL,
 	`COOP_ID` varchar(32) NOT NULL,
@@ -79,7 +80,7 @@ CREATE TABLE IF NOT EXISTS `metrics` (
     CONSTRAINT `METRICS_FK1` FOREIGN KEY (`COOP_ID`) REFERENCES `coops` (`COOP_ID`),
     INDEX (`COOP_ID`, `YEAR`, `METRIC`),
     INDEX (`COOP_ID`, `MONTH`, `METRIC`),
+    INDEX (`COOP_ID`, `WEEK`, `METRIC`),
     INDEX (`COOP_ID`, `DAY`, `METRIC`),
     INDEX (`COOP_ID`, `HOUR`, `METRIC`)
  );
- 

@@ -1,12 +1,19 @@
 package coop.database.repository;
 
+import coop.api.auth.CoopService;
 import coop.database.table.Coop;
 import coop.database.table.CoopMetric;
 import coop.pi.metric.Metric;
+import lombok.Data;
+import org.hibernate.transform.AliasToBeanResultTransformer;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.EnableTransactionManagement;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Instant;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 
 @Repository
@@ -18,10 +25,55 @@ public class MetricRepository extends AuthorizerScopedRepository<CoopMetric> {
         return CoopMetric.class;
     }
 
-    public List<CoopMetric> findByMetric(Coop coop, String metric) {
-        return this.query("FROM CoopMetric WHERE metric = :metric AND coop = :coop ORDER BY dt ASC", CoopMetric.class)
+    public List<MetricData> findByMetric(Coop coop, String metric) {
+        return sessionFactory.getCurrentSession().createNativeQuery(
+                """
+                SELECT
+                    CAST(`WEEK` AS CHAR) AS `date`,
+                    AVG(`VALUE`) AS `value`
+                FROM METRICS
+                WHERE COOP_ID = :coopId
+                AND metric = :metric
+                GROUP BY `WEEK`
+                """)
+                .setParameter("coopId", coop.getId())
                 .setParameter("metric", metric)
-                .setParameter("coop", coop)
+                .setResultTransformer(new AliasToBeanResultTransformer(MetricData.class))
                 .list();
+    }
+
+    public CoopMetric save(Coop coop, String componentId, long date, String name, Double value) {
+
+        Instant instant = Instant.ofEpochMilli(date);
+        ZonedDateTime zdt = instant.atZone(ZoneId.of("America/Chicago"));
+        DateTimeFormatter yearFormat = DateTimeFormatter.ofPattern("yyyy");
+        DateTimeFormatter monthFormat = DateTimeFormatter.ofPattern("yyyyMM");
+        DateTimeFormatter weekFormat = DateTimeFormatter.ofPattern("yyyyww");
+        DateTimeFormatter dayFormat = DateTimeFormatter.ofPattern("yyyyMMdd");
+        DateTimeFormatter hourFormat = DateTimeFormatter.ofPattern("yyyyMMddhh");
+
+        CoopMetric coopMetric = new CoopMetric();
+
+        coopMetric.setDt(date);
+        coopMetric.setYear(Integer.parseInt(yearFormat.format(zdt)));
+        coopMetric.setMonth(Integer.parseInt(monthFormat.format(zdt)));
+        coopMetric.setWeek(Integer.parseInt(weekFormat.format(zdt)));
+        coopMetric.setDay(Integer.parseInt(dayFormat.format(zdt)));
+        coopMetric.setHour(Integer.parseInt(hourFormat.format(zdt)));
+
+        coopMetric.setCoop(coop);
+        coopMetric.setComponentId(componentId);
+        coopMetric.setMetric(name);
+        coopMetric.setValue(value);
+
+        this.persist(coopMetric);
+        return coopMetric;
+    }
+
+
+    @Data
+    public static class MetricData {
+        private String date;
+        private Double value;
     }
 }

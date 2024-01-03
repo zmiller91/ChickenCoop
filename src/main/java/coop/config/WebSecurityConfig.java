@@ -55,6 +55,7 @@ public class WebSecurityConfig {
         CorsConfiguration config = new CorsConfiguration();
         config.addAllowedHeader("*");
         config.addAllowedMethod("*");
+        config.addAllowedOrigin("http://192.168.50.233:3000");
         config.addAllowedOrigin("http://localhost:3000");
         source.registerCorsConfiguration("/**", config);
         return source;
