@@ -4,11 +4,10 @@ import coop.shared.database.repository.ComponentConfigRepository;
 import coop.shared.database.repository.ComponentRepository;
 import coop.shared.database.repository.ComponentSerialRepository;
 import coop.shared.database.repository.CoopRepository;
-import coop.shared.database.table.ComponentType;
-import coop.shared.database.table.CoopComponent;
-import coop.shared.database.table.ComponentSerial;
-import coop.shared.database.table.Coop;
+import coop.shared.database.table.*;
 import coop.shared.exception.NotFound;
+import coop.shared.pi.StateProvider;
+import coop.shared.pi.config.CoopState;
 import coop.shared.security.AuthContext;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.EnableTransactionManagement;
@@ -38,6 +37,9 @@ public class ComponentService {
 
     @Autowired
     private AuthContext userContext;
+
+    @Autowired
+    private StateProvider stateProvider;
 
     @PostMapping("/register")
     public RegisterComponentResponse create(@RequestBody RegisterComponentRequest request) {
@@ -93,15 +95,22 @@ public class ComponentService {
     }
 
     @PostMapping("/{componentId}")
-    public GetComponentResponse post(@RequestBody PostComponentRequest request) {
+    public PostComponentResponse post(@RequestBody PostComponentRequest request) {
 
-        
         CoopComponent component = componentRepository.findById(userContext.getCurrentUser(), request.component.id);
         if(component == null) {
             throw new NotFound("Component not found.");
         }
 
-        return new GetComponentResponse(componentDao(component));
+        request.component.config.forEach(c -> configRepository.save(component, c.key, c.value));
+
+        Coop coop = component.getCoop();
+        coopRepository.refresh(coop);
+
+        CoopState state = stateProvider.forCoop(component.getCoop());
+        stateProvider.put(component.getCoop(), state);
+
+        return new PostComponentResponse();
     }
 
     private ComponentDAO componentDao(CoopComponent component) {
@@ -130,4 +139,5 @@ public class ComponentService {
     public record GetComponentResponse(ComponentDAO component){};
 
     public record PostComponentRequest(ComponentDAO component){};
+    public record PostComponentResponse(){}
 }

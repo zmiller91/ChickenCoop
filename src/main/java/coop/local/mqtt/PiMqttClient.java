@@ -4,12 +4,15 @@ import lombok.extern.log4j.Log4j2;
 import software.amazon.awssdk.crt.mqtt.*;
 import software.amazon.awssdk.iot.AwsIotMqttConnectionBuilder;
 
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
 @Log4j2
 public class PiMqttClient implements MqttClientConnectionEvents {
+
+    private static final Duration CONNECTION_RETRY_INTERVAL = Duration.ofMinutes(3);
 
     private MqttClientConnection connection;
     private boolean isConnected = false;
@@ -37,15 +40,9 @@ public class PiMqttClient implements MqttClientConnectionEvents {
             return;
         }
 
-        try {
-
-            CompletableFuture.supplyAsync(() -> connection.publish(message.message()))
-                    .thenAccept(i -> message.onSuccess())
-                    .exceptionally(message::onFailed);
-
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
+        CompletableFuture.supplyAsync(() -> connection.publish(message.message()))
+                .thenAccept(i -> message.onSuccess())
+                .exceptionally(message::onFailed);
     }
 
     public boolean connect() {
@@ -55,7 +52,7 @@ public class PiMqttClient implements MqttClientConnectionEvents {
         }
 
         long timeSinceLastConnect = System.currentTimeMillis() - lastConnectionAttempt;
-        if (lastConnectionAttempt != 0 && timeSinceLastConnect < 15_000) {
+        if (lastConnectionAttempt != 0 && timeSinceLastConnect < CONNECTION_RETRY_INTERVAL.toMillis()) {
             log.info("Not attempting connection since insufficient time has passed.");
             return false;
         }
@@ -69,11 +66,13 @@ public class PiMqttClient implements MqttClientConnectionEvents {
                 }
             }
 
+            // TODO: As soon as a connection is established the Pi should ask for a state update.
+
             Thread.sleep(1000);
             return true;
 
         } catch (Exception e) {
-            log.info("Error connecting.", e);
+            log.info("Error connecting to MQTT. Will retry later.");
             connection.disconnect();
             return false;
 

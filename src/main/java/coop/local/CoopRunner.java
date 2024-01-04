@@ -85,6 +85,8 @@ public class CoopRunner extends PiRunner {
         long timeSinceLastPublish = System.currentTimeMillis() - lastPublish;
         if (timeSinceLastPublish >= PUBLISH_DURATION.toMillis()) {
 
+            System.out.println("State: " + new Gson().toJson(provider.getConfig()));
+
             getWeather((weather) -> {
                 publish("component-1234", "temperature", weather.getCurrent().getTemperature_2m());
                 publish("component-1234", "humidity", weather.getCurrent().getRelative_humidity_2m());
