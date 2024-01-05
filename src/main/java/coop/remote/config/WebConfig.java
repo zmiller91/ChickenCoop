@@ -1,4 +1,4 @@
-package coop.shared.config;
+package coop.remote.config;
 
 import com.amazonaws.services.iotdata.AWSIotData;
 import com.amazonaws.services.iotdata.AWSIotDataClientBuilder;

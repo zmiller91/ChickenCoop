@@ -1,16 +1,27 @@
-package coop.local;
+package coop.local.config;
 
+import coop.local.Context;
+import coop.local.CoopRunner;
+import coop.local.LocalStateProvider;
 import coop.local.mqtt.PiMqttClient;
 import coop.shared.pi.StateProvider;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.CommandLineRunner;
+import org.springframework.boot.web.server.WebServerFactory;
+import org.springframework.boot.web.server.WebServerFactoryCustomizer;
+import org.springframework.boot.web.servlet.server.ConfigurableServletWebServerFactory;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.task.SimpleAsyncTaskExecutor;
 import org.springframework.core.task.TaskExecutor;
 
 @Configuration
-public class LocalWebConfig {
+public class LocalWebConfig implements WebServerFactoryCustomizer<ConfigurableServletWebServerFactory> {
+
+    @Override
+    public void customize(ConfigurableServletWebServerFactory factory) {
+        factory.setPort(8042);
+    }
 
     @Bean
     public PiMqttClient client() {
@@ -30,7 +41,7 @@ public class LocalWebConfig {
     @Bean
     @Qualifier("PiRunnerExecutor")
     public TaskExecutor taskExecutor() {
-        return new SimpleAsyncTaskExecutor(); // Or use another one of your liking
+        return new SimpleAsyncTaskExecutor();
     }
 
     @Bean

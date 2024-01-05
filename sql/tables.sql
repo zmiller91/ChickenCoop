@@ -1,4 +1,9 @@
-USE coop;
+create database if not exists coop;
+create database if not exists local_pi;
+
+
+-- USE coop;
+USE local_pi;
 
 CREATE TABLE IF NOT EXISTS `users` (
     `USER_ID` varchar(32) NOT NULL,

@@ -1,4 +1,4 @@
-package coop.shared.config;
+package coop.remote.config;
 
 import org.hibernate.SessionFactory;
 import org.springframework.boot.jdbc.DataSourceBuilder;
@@ -26,7 +26,7 @@ public class DBConfiguration {
     @Bean
     public SessionFactory sessionFactory(DataSource dataSource) {
         LocalSessionFactoryBuilder builder = new LocalSessionFactoryBuilder(dataSource);
-        builder.scanPackages("coop.*");
+        builder.scanPackages("coop.shared.*", "coop.remote.*");
         return builder.buildSessionFactory();
     }
 

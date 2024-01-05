@@ -20,6 +20,10 @@ public abstract class StateProvider {
 
     public CoopState forCoop(Coop coop) {
 
+        if(coop == null) {
+            return new CoopState();
+        }
+
         List<ComponentState> components = componentRepository
                 .findByCoop(coop)
                 .stream()

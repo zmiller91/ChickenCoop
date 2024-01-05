@@ -81,6 +81,9 @@ public class CoopRunner extends PiRunner {
 
     @Override
     protected void invoke() {
+        if (this.provider.getConfig() == null || this.provider.getConfig().getCoopId() == null) {
+            return;
+        }
 
         long timeSinceLastPublish = System.currentTimeMillis() - lastPublish;
         if (timeSinceLastPublish >= PUBLISH_DURATION.toMillis()) {
