@@ -1,6 +1,11 @@
 package coop.local.mqtt;
 
 import coop.local.Context;
+import jakarta.annotation.PostConstruct;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Component;
+
+import java.util.EnumSet;
 
 public enum ShadowTopic {
     GET_ACCEPTED("$aws/things/%s/shadow/get/accepted"),
@@ -17,7 +22,7 @@ public enum ShadowTopic {
     DELETE("$aws/things/%s/shadow/delete"),
     METRIC("datatopic");
 
-    private final String shadowName = Context.getInstance().shadowName();
+    private String shadowName;
     private final String topic;
 
     ShadowTopic(String topic) {
@@ -26,5 +31,22 @@ public enum ShadowTopic {
 
     public String topic() {
         return String.format(topic, shadowName);
+    }
+
+    private void setShadowName(String shadowName) {
+        this.shadowName = shadowName;
+    }
+
+    @Component
+    public static class ShadowTopicInjector {
+
+        @Autowired
+        private Context context;
+
+        @PostConstruct
+        public void postConstruct() {
+            for (ShadowTopic st : EnumSet.allOf(ShadowTopic.class))
+                st.setShadowName(context.shadowName());
+        }
     }
 }

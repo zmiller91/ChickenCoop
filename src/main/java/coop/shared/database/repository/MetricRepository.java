@@ -29,7 +29,7 @@ public class MetricRepository extends AuthorizerScopedRepository<CoopMetric> {
                 SELECT
                     CAST(`WEEK` AS CHAR) AS `date`,
                     AVG(`VALUE`) AS `value`
-                FROM METRICS
+                FROM metrics
                 WHERE COOP_ID = :coopId
                 AND metric = :metric
                 GROUP BY `WEEK`

@@ -32,14 +32,17 @@ public class LocalStateProvider extends StateProvider {
     private PiRepository piRepository;
 
     @Autowired
-    CoopRepository coopRepository;
+    private CoopRepository coopRepository;
+
+    @Autowired
+    private Context context;
 
     private CoopState config = null;
 
     public CoopState getConfig() {
         if(config == null) {
 
-            Pi pi = piRepository.findById(Context.getInstance().piId());
+            Pi pi = piRepository.findById(context.piId());
             Coop coop = coopRepository.findById(pi, "4028b2698ca7ff21018ca8004f970000");
             this.config = forCoop(coop);
             if (this.config == null) {

@@ -1,6 +1,7 @@
 package coop.local.config;
 
 import org.hibernate.SessionFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.jdbc.DataSourceBuilder;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -14,10 +15,10 @@ import javax.sql.DataSource;
 public class DBConfiguration {
 
     @Bean
-    DataSource dataSource() {
+    DataSource dataSource(@Value("${db.user}") String username, @Value("${db.password}") String password) {
         return DataSourceBuilder.create()
-                .username("root")
-                .password("password")
+                .username(username)
+                .password(password)
                 .url("jdbc:mysql://localhost:3306/local_pi")
                 .driverClassName("com.mysql.cj.jdbc.Driver")
                 .build();

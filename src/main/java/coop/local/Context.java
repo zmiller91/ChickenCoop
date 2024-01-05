@@ -10,7 +10,7 @@ import java.util.Map;
 
 public class Context {
 
-    private static final Context INSTANCE = new Context("C:\\Users\\zmiller\\IdeaProjects\\CoopPi\\context.txt");
+//    private static final Context INSTANCE = new Context("C:\\Users\\zmiller\\IdeaProjects\\CoopPi\\context.txt");
 
     private final Map<String, String> context;
 
@@ -68,8 +68,8 @@ public class Context {
         }
     }
 
-    public static Context getInstance() {
-        return INSTANCE;
-    }
+//    public static Context getInstance() {
+//        return INSTANCE;
+//    }
 
 }
