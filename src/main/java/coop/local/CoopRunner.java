@@ -78,26 +78,28 @@ public class CoopRunner extends PiRunner {
         }
 
         // Start a thread to handle the incoming data from the serial port
-        SerialReader serialReader = new SerialReader(new Console(), serial);
+        SerialReader serialReader = new SerialReader(new Console(), serial, this::onRead);
         this.serialReaderThread = new Thread(serialReader, "SerialReader");
         serialReaderThread.setDaemon(true);
         serialReaderThread.start();
 
     }
 
+    private void onRead(String str) {
+        System.out.println("Reading: " + str);
+        if(str.startsWith("AT")) {
+            System.out.println("Acknowledging: " + str);
+            serial.write("PI:" + str.replaceFirst("AT", ""));
+            System.out.println("Acknowledged: " + str);
+
+        }
+    }
+
     @Override
     protected void invoke() {
-
-
-        if (this.provider.getConfig() == null || this.provider.getConfig().getCoopId() == null) {
-            return;
-        };
-
-
-
-
-
-
+//        if (this.provider.getConfig() == null || this.provider.getConfig().getCoopId() == null) {
+//            return;
+//        };
     }
 
     @Override

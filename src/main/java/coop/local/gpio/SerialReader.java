@@ -5,17 +5,20 @@ import com.pi4j.util.Console;
 
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
+import java.util.function.Consumer;
 
 public class SerialReader implements Runnable {
 
     private final Console console;
     private final Serial serial;
+    private final Consumer<String> callback;
 
     private boolean continueReading = true;
 
-    public SerialReader(Console console, Serial serial) {
+    public SerialReader(Console console, Serial serial, Consumer<String> callback) {
         this.console = console;
         this.serial = serial;
+        this.callback = callback;
     }
 
     public void stopReading() {
@@ -43,8 +46,7 @@ public class SerialReader implements Runnable {
                         if (b < 32) {
                             // All non-string bytes are handled as line breaks
                             if (!line.isEmpty()) {
-                                // Here we should add code to parse the data to a GPS data object
-                                console.println("Data: '" + line + "'");
+                                callback.accept(line);
                                 line = "";
                             }
                         } else {
