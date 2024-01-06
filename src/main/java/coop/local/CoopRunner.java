@@ -1,27 +1,47 @@
 package coop.local;
 
-import com.google.gson.Gson;
+import com.pi4j.Pi4J;
+import com.pi4j.context.Context;
+import com.pi4j.io.serial.FlowControl;
+import com.pi4j.io.serial.Parity;
+import com.pi4j.io.serial.Serial;
+import com.pi4j.io.serial.StopBits;
+import com.pi4j.util.Console;
+import coop.local.gpio.SerialReader;
 import coop.local.mqtt.*;
 import coop.local.service.PiRunner;
 import coop.shared.pi.metric.Metric;
 import lombok.Data;
-import org.apache.hc.core5.http.ClassicHttpRequest;
-import org.apache.hc.core5.http.io.support.ClassicRequestBuilder;
-import org.apache.http.impl.client.CloseableHttpClient;
-import org.apache.http.impl.client.HttpClients;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
-import software.amazon.awssdk.crt.mqtt.MqttMessage;
-import software.amazon.awssdk.crt.mqtt.QualityOfService;
 
-import java.io.IOException;
-import java.io.UncheckedIOException;
-import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.Arrays;
 import java.util.List;
-import java.util.function.Consumer;
 
+/**
+ * In order to use this you need to enable the serial port on the Raspberry Pi:
+ *
+ * 1. On the pi execute `sudo raspi-config`
+ *     *  On the raspberry pi 2 its under Interface Options -> Serial Port
+ * 2. Answer NO to the question about login shell
+ * 3. Answer YES to the question about serial hardware port
+ * 4. Reboot
+ *
+ * You can get the serial port by running:
+ *
+ * 1. On the pi execute `dmesg | grep tty`
+ * 2. The serial port will be on the line that starts with something like "3f201000.serial: ttyAMA0"
+ * 3. The serial port will be after the colon, so in this case the serial port is "ttyAMA0" and the device name is
+ *    "/dev/ttyAMA0"
+ *
+ * To test this you can connect the TX to the RX with jumper wire and then install and run minicom. What is typed should
+ * be output to the screen. If it doens't work, then what you type won't show up.
+ *
+ *
+ * minicom: https://help.ubuntu.com/community/Minicom
+ * credit: https://forums.raspberrypi.com/viewtopic.php?t=213133#:~:text=Enabling%20the%20serial%20port%20is,question%20about%20serial%20hardware%20port.
+ */
 @Component
 public class CoopRunner extends PiRunner {
 
@@ -31,75 +51,53 @@ public class CoopRunner extends PiRunner {
     @Autowired
     private LocalStateProvider provider;
 
-    private long lastPublish = 0;
-    private double foodLbs = 25;
-    private double waterPct = 100;
+    private Serial serial;
+    Thread serialReaderThread;
 
     @Override
     protected void init() {
+
+        // TODO: Move this somewhere else
         PiMqttMessage message = new PiMqttMessage(ShadowTopic.GET.topic(), "{}");
         publish(message);
 
-    }
+        Context pi4j = Pi4J.newAutoContext();
+        this.serial = pi4j.create(Serial.newConfigBuilder(pi4j)
+                .use_115200_N81()
+                .dataBits_8()
+                .parity(Parity.NONE)
+                .stopBits(StopBits._1)
+                .flowControl(FlowControl.NONE)
+                .device("/dev/ttyAMA0")
+                .id("serial")
+                .provider("pigpio-serial")
+                .build());
 
-    private void getWeather(Consumer<Weather> callback) {
-        try (CloseableHttpClient httpclient = HttpClients.createDefault()) {
-            ClassicHttpRequest httpGet = ClassicRequestBuilder.get("https://api.open-meteo.com/v1/forecast?latitude=41.661129&longitude=-91.530167&current=temperature_2m,relative_humidity_2m&temperature_unit=fahrenheit&timeformat=unixtime").build();
-
-//            httpclient.execute(httpGet, response -> {
-//                String content = CharStreams.toString(new InputStreamReader(response.getEntity().getContent()));
-//                System.out.println(content);
-//                Weather weather = GSON.fromJson(content, Weather.class);
-//                EntityUtils.consume(response.getEntity());
-//                callback.accept(weather);
-//                return weather;
-//            });
-        } catch (IOException e){
-            throw new UncheckedIOException(e);
-        }
-    }
-
-    private double getFoodLbs() {
-        double food = foodLbs;
-        foodLbs = foodLbs - 1;
-        if (foodLbs <= 0) {
-            foodLbs = 25;
+        while(!serial.isOpen()) {
+           sleep(100);
         }
 
-        return Math.max(0, food);
-    }
+        // Start a thread to handle the incoming data from the serial port
+        SerialReader serialReader = new SerialReader(new Console(), serial);
+        this.serialReaderThread = new Thread(serialReader, "SerialReader");
+        serialReaderThread.setDaemon(true);
+        serialReaderThread.start();
 
-    private double getWaterPct() {
-        double water = waterPct;
-        waterPct = waterPct - 10;
-        if (waterPct <= 0) {
-            waterPct = 100;
-        }
-
-        return Math.max(water, 0);
     }
 
     @Override
     protected void invoke() {
+
+
         if (this.provider.getConfig() == null || this.provider.getConfig().getCoopId() == null) {
             return;
-        }
+        };
 
-        long timeSinceLastPublish = System.currentTimeMillis() - lastPublish;
-        if (timeSinceLastPublish >= PUBLISH_DURATION.toMillis()) {
 
-            System.out.println("State: " + new Gson().toJson(provider.getConfig()));
 
-            getWeather((weather) -> {
-                publish("component-1234", "temperature", weather.getCurrent().getTemperature_2m());
-                publish("component-1234", "humidity", weather.getCurrent().getRelative_humidity_2m());
-            });
 
-//            publish("component-1234", "door_open", isDoorOpen() ? 1 : 0);
-            publish("component-1234", "food", getFoodLbs());
-            publish("component-1234", "water", getWaterPct());
-            lastPublish = System.currentTimeMillis();
-        }
+
+
     }
 
     @Override

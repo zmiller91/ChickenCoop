@@ -1,12 +1,10 @@
 package coop.local.service;
 
-import coop.local.Context;
 import coop.local.mqtt.PiMqttClient;
 import coop.local.mqtt.ShadowSubscription;
 import lombok.extern.log4j.Log4j2;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
-import org.springframework.transaction.annotation.EnableTransactionManagement;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
@@ -31,7 +29,7 @@ public abstract class PiRunner implements Runnable {
 
         while(this.shouldRun) {
             try {
-                Thread.sleep(1000);
+                sleep(1000);
                 invoke();
             } catch (Throwable t) {
                 log.warn(t);
@@ -52,8 +50,16 @@ public abstract class PiRunner implements Runnable {
             client().withSubscriptions(subscriptions()).connect();
 
             // TODO: Apparently I need to wait a second before the subscription to take effect...
-            Thread.sleep(2000);
+            sleep(2000);
         } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    protected void sleep(long millis) {
+        try {
+            Thread.sleep(millis);
+        } catch (InterruptedException e) {
             throw new RuntimeException(e);
         }
     }

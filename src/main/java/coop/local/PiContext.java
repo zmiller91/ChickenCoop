@@ -8,13 +8,13 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-public class Context {
+public class PiContext {
 
 //    private static final Context INSTANCE = new Context("C:\\Users\\zmiller\\IdeaProjects\\CoopPi\\context.txt");
 
     private final Map<String, String> context;
 
-    public Context(String location) {
+    public PiContext(String location) {
         this.context = parse(location);
     }
 

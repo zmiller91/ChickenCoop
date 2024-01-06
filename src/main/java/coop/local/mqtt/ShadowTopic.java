@@ -1,6 +1,6 @@
 package coop.local.mqtt;
 
-import coop.local.Context;
+import coop.local.PiContext;
 import jakarta.annotation.PostConstruct;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
@@ -41,12 +41,12 @@ public enum ShadowTopic {
     public static class ShadowTopicInjector {
 
         @Autowired
-        private Context context;
+        private PiContext piContext;
 
         @PostConstruct
         public void postConstruct() {
             for (ShadowTopic st : EnumSet.allOf(ShadowTopic.class))
-                st.setShadowName(context.shadowName());
+                st.setShadowName(piContext.shadowName());
         }
     }
 }

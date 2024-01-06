@@ -1,6 +1,6 @@
 package coop.local.config;
 
-import coop.local.Context;
+import coop.local.PiContext;
 import coop.local.CoopRunner;
 import coop.local.LocalStateProvider;
 import coop.local.mqtt.PiMqttClient;
@@ -8,7 +8,6 @@ import coop.shared.pi.StateProvider;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.CommandLineRunner;
-import org.springframework.boot.web.server.WebServerFactory;
 import org.springframework.boot.web.server.WebServerFactoryCustomizer;
 import org.springframework.boot.web.servlet.server.ConfigurableServletWebServerFactory;
 import org.springframework.context.annotation.Bean;
@@ -25,17 +24,17 @@ public class LocalWebConfig implements WebServerFactoryCustomizer<ConfigurableSe
     }
 
     @Bean
-    public Context context(@Value("${context.path}") String path) {
-        return new Context(path);
+    public PiContext context(@Value("${context.path}") String path) {
+        return new PiContext(path);
     }
 
     @Bean
-    public PiMqttClient client(Context context) {
+    public PiMqttClient client(PiContext piContext) {
 
-        String clientEndpoint = context.endpoint();
-        String clientId = context.clientId();
-        String certificateFile = context.certKey();
-        String privateKeyFile = context.privateKey();
+        String clientEndpoint = piContext.endpoint();
+        String clientId = piContext.clientId();
+        String certificateFile = piContext.certKey();
+        String privateKeyFile = piContext.privateKey();
 
         return new PiMqttClient(clientEndpoint, clientId, certificateFile, privateKeyFile);
     }

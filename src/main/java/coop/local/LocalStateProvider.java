@@ -14,10 +14,6 @@ import coop.shared.pi.config.IotShadowRequest;
 import coop.shared.pi.config.IotState;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
-import software.amazon.awssdk.crt.mqtt.MqttMessage;
-import software.amazon.awssdk.crt.mqtt.QualityOfService;
-
-import java.nio.charset.StandardCharsets;
 
 @Component
 public class LocalStateProvider extends StateProvider {
@@ -35,14 +31,14 @@ public class LocalStateProvider extends StateProvider {
     private CoopRepository coopRepository;
 
     @Autowired
-    private Context context;
+    private PiContext piContext;
 
     private CoopState config = null;
 
     public CoopState getConfig() {
         if(config == null) {
 
-            Pi pi = piRepository.findById(context.piId());
+            Pi pi = piRepository.findById(piContext.piId());
             Coop coop = coopRepository.findById(pi, "4028b2698ca7ff21018ca8004f970000");
             this.config = forCoop(coop);
             if (this.config == null) {
