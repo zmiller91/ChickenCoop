@@ -6,8 +6,8 @@ import com.pi4j.io.serial.FlowControl;
 import com.pi4j.io.serial.Parity;
 import com.pi4j.io.serial.Serial;
 import com.pi4j.io.serial.StopBits;
-import com.pi4j.util.Console;
-import coop.local.gpio.SerialReader;
+import coop.local.comms.Communication;
+import coop.local.comms.PiSerialCommunication;
 import coop.local.mqtt.*;
 import coop.local.service.PiRunner;
 import coop.shared.pi.metric.Metric;
@@ -51,48 +51,23 @@ public class CoopRunner extends PiRunner {
     @Autowired
     private LocalStateProvider provider;
 
-    private Serial serial;
-    Thread serialReaderThread;
+    @Autowired
+    private Communication communication;
 
     @Override
     protected void init() {
+
+        communication.addListener(this::onRead);
+        communication.beginReading();
 
         // TODO: Move this somewhere else
         PiMqttMessage message = new PiMqttMessage(ShadowTopic.GET.topic(), "{}");
         publish(message);
 
-        Context pi4j = Pi4J.newAutoContext();
-        this.serial = pi4j.create(Serial.newConfigBuilder(pi4j)
-                .use_115200_N81()
-                .dataBits_8()
-                .parity(Parity.NONE)
-                .stopBits(StopBits._1)
-                .flowControl(FlowControl.NONE)
-                .device("/dev/ttyAMA0")
-                .id("serial")
-                .provider("pigpio-serial")
-                .build());
-
-        while(!serial.isOpen()) {
-           sleep(100);
-        }
-
-        // Start a thread to handle the incoming data from the serial port
-        SerialReader serialReader = new SerialReader(new Console(), serial, this::onRead);
-        this.serialReaderThread = new Thread(serialReader, "SerialReader");
-        serialReaderThread.setDaemon(true);
-        serialReaderThread.start();
-
     }
 
-    private void onRead(String str) {
-        System.out.println("Reading: " + str);
-        if(str.startsWith("AT")) {
-            System.out.println("Acknowledging: " + str);
-            serial.write("PI:" + str.replaceFirst("AT", ""));
-            System.out.println("Acknowledged: " + str);
-
-        }
+    private void onRead(byte[] str) {
+        System.out.println("Received: " + new String(str));
     }
 
     @Override
