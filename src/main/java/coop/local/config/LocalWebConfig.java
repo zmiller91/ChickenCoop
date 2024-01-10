@@ -37,6 +37,12 @@ public class LocalWebConfig implements WebServerFactoryCustomizer<ConfigurableSe
     }
 
     @Bean
+    @Qualifier("coop_id")
+    public String coopId(@Value("${coop.id}") String coopId) {
+        return coopId;
+    }
+
+    @Bean
     public PiMqttClient client(PiContext piContext) {
 
         String clientEndpoint = piContext.endpoint();

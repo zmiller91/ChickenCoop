@@ -13,6 +13,7 @@ import coop.shared.pi.config.CoopState;
 import coop.shared.pi.config.IotShadowRequest;
 import coop.shared.pi.config.IotState;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.EnableTransactionManagement;
 import org.springframework.transaction.annotation.Transactional;
@@ -34,13 +35,17 @@ public class LocalStateProvider extends StateProvider {
     @Autowired
     private PiContext piContext;
 
+    @Autowired
+    @Qualifier("coop_id")
+    private String coopId;
+
     private CoopState config = null;
 
     public CoopState getConfig() {
         if(config == null) {
 
             Pi pi = piRepository.findById(piContext.piId());
-            Coop coop = coopRepository.findById(pi, "4028b2698cd4e444018cd4e69eed0001");
+            Coop coop = coopRepository.findById(pi, coopId);
             this.config = forCoop(coop);
             if (this.config == null) {
                 throw new IllegalStateException("Config for coop not found.");
