@@ -47,6 +47,7 @@ public class CoopRunner extends PiRunner {
 
     private static final Duration PUBLISH_DURATION = Duration.ofSeconds(30);
     private static final long MQTT_TIMEOUT = 5000;
+    private long lastCall = 0;
 
     @Autowired
     private LocalStateProvider provider;
@@ -72,6 +73,18 @@ public class CoopRunner extends PiRunner {
 
     @Override
     protected void invoke() {
+
+        long now = System.currentTimeMillis();
+        if (now - lastCall > PUBLISH_DURATION.toMillis()) {
+            communication.write(32, "Hi from Pi");
+            lastCall = System.currentTimeMillis();
+        }
+
+
+
+
+
+
 //        if (this.provider.getConfig() == null || this.provider.getConfig().getCoopId() == null) {
 //            return;
 //        };

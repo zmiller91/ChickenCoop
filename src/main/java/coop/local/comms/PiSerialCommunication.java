@@ -27,6 +27,7 @@ public class PiSerialCommunication implements SerialCommunication {
                 .provider("pigpio-serial")
                 .build());
 
+        serial.open();
         while(!serial.isOpen()) {
             try {sleep(100);} catch (InterruptedException e) {throw new RuntimeException(e);}
         }
