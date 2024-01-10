@@ -4,9 +4,9 @@ import coop.local.PiContext;
 import coop.local.CoopRunner;
 import coop.local.LocalStateProvider;
 import coop.local.comms.Communication;
-import coop.local.comms.DevSerialCommunication;
-import coop.local.comms.PiSerialCommunication;
-import coop.local.comms.SerialCommunication;
+import coop.local.comms.serial.DevSerialCommunication;
+import coop.local.comms.serial.PiSerialCommunication;
+import coop.local.comms.serial.SerialCommunication;
 import coop.local.mqtt.PiMqttClient;
 import coop.shared.pi.StateProvider;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -20,9 +20,7 @@ import org.springframework.core.env.Environment;
 import org.springframework.core.task.SimpleAsyncTaskExecutor;
 import org.springframework.core.task.TaskExecutor;
 
-import java.io.Serial;
 import java.util.Arrays;
-import java.util.stream.Stream;
 
 @Configuration
 public class LocalWebConfig implements WebServerFactoryCustomizer<ConfigurableServletWebServerFactory> {

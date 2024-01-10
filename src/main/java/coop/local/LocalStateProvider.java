@@ -14,12 +14,13 @@ import coop.shared.pi.config.IotShadowRequest;
 import coop.shared.pi.config.IotState;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.EnableTransactionManagement;
+import org.springframework.transaction.annotation.Transactional;
 
 @Component
+@Transactional
+@EnableTransactionManagement
 public class LocalStateProvider extends StateProvider {
-
-    private static final long PUBLISH_TIMEOUT = 3000;
-    private static final Gson GSON = new Gson();
 
     @Autowired
     private PiMqttClient client;
@@ -39,7 +40,7 @@ public class LocalStateProvider extends StateProvider {
         if(config == null) {
 
             Pi pi = piRepository.findById(piContext.piId());
-            Coop coop = coopRepository.findById(pi, "4028b2698ca7ff21018ca8004f970000");
+            Coop coop = coopRepository.findById(pi, "4028b2698cd4e444018cd4e69eed0001");
             this.config = forCoop(coop);
             if (this.config == null) {
                 throw new IllegalStateException("Config for coop not found.");

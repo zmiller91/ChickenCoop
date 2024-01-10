@@ -1,4 +1,4 @@
-package coop.local.comms;
+package coop.local.comms.serial;
 
 public interface SerialCommunication {
     boolean bytesAvailable();

@@ -1,4 +1,4 @@
-package coop.local.comms;
+package coop.local.comms.serial;
 
 import com.pi4j.Pi4J;
 import com.pi4j.context.Context;

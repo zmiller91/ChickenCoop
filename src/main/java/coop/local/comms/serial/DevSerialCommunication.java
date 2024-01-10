@@ -1,4 +1,4 @@
-package coop.local.comms;
+package coop.local.comms.serial;
 
 import com.fazecast.jSerialComm.SerialPort;
 

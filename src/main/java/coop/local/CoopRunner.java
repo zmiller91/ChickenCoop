@@ -1,19 +1,20 @@
 package coop.local;
 
-import com.pi4j.Pi4J;
-import com.pi4j.context.Context;
-import com.pi4j.io.serial.FlowControl;
-import com.pi4j.io.serial.Parity;
-import com.pi4j.io.serial.Serial;
-import com.pi4j.io.serial.StopBits;
 import coop.local.comms.Communication;
-import coop.local.comms.PiSerialCommunication;
+import coop.local.comms.message.MessageReceived;
 import coop.local.mqtt.*;
 import coop.local.service.PiRunner;
+import coop.shared.database.repository.CoopRepository;
+import coop.shared.database.repository.MetricRepository;
+import coop.shared.database.repository.PiRepository;
+import coop.shared.database.table.Coop;
+import coop.shared.database.table.Pi;
 import coop.shared.pi.metric.Metric;
 import lombok.Data;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.EnableTransactionManagement;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Duration;
 import java.util.Arrays;
@@ -43,11 +44,9 @@ import java.util.List;
  * credit: https://forums.raspberrypi.com/viewtopic.php?t=213133#:~:text=Enabling%20the%20serial%20port%20is,question%20about%20serial%20hardware%20port.
  */
 @Component
+@Transactional
+@EnableTransactionManagement
 public class CoopRunner extends PiRunner {
-
-    private static final Duration PUBLISH_DURATION = Duration.ofSeconds(30);
-    private static final long MQTT_TIMEOUT = 5000;
-    private long lastCall = 0;
 
     @Autowired
     private LocalStateProvider provider;
@@ -55,39 +54,33 @@ public class CoopRunner extends PiRunner {
     @Autowired
     private Communication communication;
 
+    @Autowired
+    private MetricRepository metricRepository;
+
+    @Autowired
+    private CoopRepository coopRepository;
+
+    @Autowired
+    private PiRepository piRepository;
+
+    @Autowired
+    private PiContext piContext;
+
     @Override
     protected void init() {
 
-        communication.addListener(this::onRead);
+        communication.addListener(MessageReceived.class, this::onMessageReceived);
         communication.beginReading();
 
         // TODO: Move this somewhere else
         PiMqttMessage message = new PiMqttMessage(ShadowTopic.GET.topic(), "{}");
-        publish(message);
+        publishToMqtt(message);
 
-    }
-
-    private void onRead(byte[] str) {
-        System.out.println("Received: " + new String(str));
     }
 
     @Override
     protected void invoke() {
 
-        long now = System.currentTimeMillis();
-        if (now - lastCall > PUBLISH_DURATION.toMillis()) {
-            communication.write(32, "Hi from Pi");
-            lastCall = System.currentTimeMillis();
-        }
-
-
-
-
-
-
-//        if (this.provider.getConfig() == null || this.provider.getConfig().getCoopId() == null) {
-//            return;
-//        };
     }
 
     @Override
@@ -103,36 +96,50 @@ public class CoopRunner extends PiRunner {
         );
     }
 
-    private void publish(String component, String metricName, double value) {
-        if (this.provider.getConfig() == null || this.provider.getConfig().getCoopId() == null) {
-            return;
+    private void onMessageReceived(MessageReceived message) {
+        System.out.println("Received: " + message.getRaw());
+
+        Coop coop = coop();
+        ParsedMessage parsed = ParsedMessage.parse(message);
+        if(coop != null && parsed != null && parsed.isValueDoubleType()) {
+
+            Metric metric = new Metric();
+            metric.setDt(System.currentTimeMillis());
+            metric.setCoopId(coop.getId());
+            metric.setComponentId(parsed.getComponentId());
+            metric.setMetric(parsed.getMetric());
+            metric.setValue(parsed.getValueAsDouble());
+
+            publishMetricToMqtt(metric);
+            saveMetric(metric);
+
         }
-
-        Metric metric = new Metric();
-        metric.setDt(System.currentTimeMillis());
-        metric.setCoopId(this.provider.getConfig().getCoopId());
-        metric.setComponentId(component);
-        metric.setMetric(metricName);
-        metric.setValue(value);
-
-        PiMqttMessage message = new PiMqttMessage(ShadowTopic.METRIC.topic(), metric);
-        publish(message);
     }
 
-    private void publish(PiMqttMessage message) {
-        // TODO: have to save the data locally...
+    private void publishMetricToMqtt(Metric metric) {
+        PiMqttMessage mqttMessage = new PiMqttMessage(ShadowTopic.METRIC.topic(), metric);
+        client().publish(mqttMessage);
+    }
+
+    private void publishToMqtt(PiMqttMessage message) {
         client().publish(message);
     }
 
-    @Data
-    private static class Weather {
-        private Current current;
+    private void saveMetric(Metric metric) {
+        metricRepository.save(
+                coop(),
+                metric.getComponentId(),
+                System.currentTimeMillis(),
+                metric.getMetric(),
+                metric.getValue());
     }
 
-    @Data
-    private static class Current {
-        private long time;
-        private double temperature_2m;
-        private double relative_humidity_2m;
+    private Coop coop() {
+        if (this.provider.getConfig() == null || this.provider.getConfig().getCoopId() == null) {
+            return null;
+        }
+
+        Pi pi = piRepository.findById(piContext.piId());
+        return coopRepository.findById(pi, this.provider.getConfig().getCoopId());
     }
 }
