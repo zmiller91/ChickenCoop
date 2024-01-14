@@ -10,8 +10,6 @@ import java.util.Map;
 
 public class PiContext {
 
-//    private static final Context INSTANCE = new Context("C:\\Users\\zmiller\\IdeaProjects\\CoopPi\\context.txt");
-
     private final Map<String, String> context;
 
     public PiContext(String location) {
@@ -67,9 +65,4 @@ public class PiContext {
             throw new UncheckedIOException(e);
         }
     }
-
-//    public static Context getInstance() {
-//        return INSTANCE;
-//    }
-
 }

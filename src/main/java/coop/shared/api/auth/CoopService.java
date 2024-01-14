@@ -84,7 +84,7 @@ public class CoopService {
             throw new NotFound("Coop not found.");
         }
 
-        List<MetricRepository.MetricData> data = metricRepository.findByMetric(coop, metric);
+        List<MetricRepository.MetricData> data = metricRepository.findByMetricHourly(coop, metric);
         return new GetCoopDataResponse(coopId, data);
     }
 
