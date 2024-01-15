@@ -1,8 +1,9 @@
 package coop.shared.database.repository;
 
 import coop.shared.database.table.Coop;
+import coop.shared.database.table.CoopComponent;
 import coop.shared.database.table.CoopMetric;
-import lombok.Data;
+import lombok.*;
 import org.hibernate.transform.AliasToBeanResultTransformer;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.EnableTransactionManagement;
@@ -13,19 +14,20 @@ import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeFormatterBuilder;
 import java.time.temporal.ChronoField;
 import java.time.temporal.WeekFields;
-import java.util.List;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Repository
 @EnableTransactionManagement
 @Transactional
 public class MetricRepository extends AuthorizerScopedRepository<CoopMetric> {
+
     @Override
     protected Class<CoopMetric> getObjClass() {
         return CoopMetric.class;
     }
 
-    public List<MetricData> findByMetricHourly(Coop coop, String metric) {
+    public List<MetricDataRow> findByMetricHourly(Coop coop, String metric) {
         DateTimeFormatter fromFormat = DateTimeFormatter.ofPattern("yyyyMMddHH");
         DateTimeFormatter toFormat = DateTimeFormatter.ofPattern("MMM dd ha");
 
@@ -37,16 +39,16 @@ public class MetricRepository extends AuthorizerScopedRepository<CoopMetric> {
         }).collect(Collectors.toList());
     }
 
-    public List<MetricData> findByMetricDaily(Coop coop, String metric) {
-        List<MetricData> data = findByMetric(coop, metric, "DAY");
+    public List<MetricDataRow> findByMetricDaily(Coop coop, String metric) {
+        List<MetricDataRow> data = findByMetric(coop, metric, "DAY");
         DateTimeFormatter fromFormat = DateTimeFormatter.ofPattern("yyyyMMdd");
         DateTimeFormatter toFormat = DateTimeFormatter.ofPattern("MMM dd");
         return formatLocalDate(data, fromFormat, toFormat);
     }
 
-    public List<MetricData> findByMetricWeekly(Coop coop, String metric) {
+    public List<MetricDataRow> findByMetricWeekly(Coop coop, String metric) {
 
-        List<MetricData> data = findByMetric(coop, metric, "WEEK");
+        List<MetricDataRow> data = findByMetric(coop, metric, "WEEK");
         DateTimeFormatter toFormat = DateTimeFormatter.ofPattern("MMM dd");
         DateTimeFormatter fromFormat = new DateTimeFormatterBuilder()
                 .appendValue(WeekFields.ISO.weekBasedYear(), 4)
@@ -57,9 +59,9 @@ public class MetricRepository extends AuthorizerScopedRepository<CoopMetric> {
         return formatLocalDate(data, fromFormat, toFormat);
     }
 
-    public List<MetricData> findByMetricMonthly(Coop coop, String metric) {
+    public List<MetricDataRow> findByMetricMonthly(Coop coop, String metric) {
 
-        List<MetricData> data = findByMetric(coop, metric, "MONTH");
+        List<MetricDataRow> data = findByMetric(coop, metric, "MONTH");
         DateTimeFormatter toFormat = DateTimeFormatter.ofPattern("MMM yyyy");
         DateTimeFormatter fromFormat = new DateTimeFormatterBuilder()
                 .appendValue(ChronoField.YEAR, 4)
@@ -70,7 +72,80 @@ public class MetricRepository extends AuthorizerScopedRepository<CoopMetric> {
         return formatLocalDate(data, fromFormat, toFormat);
     }
 
-    private List<MetricData> findByMetric(
+    public List<ComponentData> findByCoop(Coop coop, MetricInterval interval) {
+
+        long beginDt = MetricInterval.YEAR.periodBeginEpoch();
+
+        String query = String.format("""
+                SELECT
+                    `COMPONENT_ID` AS `componentId`,
+                    CAST(`%s` AS CHAR) AS `date`,
+                    `METRIC` AS `metric`,
+                    ROUND(AVG(`VALUE`)) as `value`
+                FROM metrics
+                WHERE `COOP_ID` = :coopId
+                AND `DT` >= :dt
+                GROUP BY `COMPONENT_ID`, `%s`, `METRIC`
+                ORDER BY `%s` ASC;
+        """, interval.groupingColumn(), interval.groupingColumn(), interval.groupingColumn());
+
+        List<ComponentDataRow> componentDataRows = sessionFactory.getCurrentSession().createNativeQuery(query)
+                .setParameter("coopId", coop.getId())
+                .setParameter("dt", beginDt)
+                .setResultTransformer(new AliasToBeanResultTransformer(ComponentDataRow.class))
+                .list();
+
+        Map<String, ComponentData> groupedData = new HashMap<>();
+        componentDataRows.forEach(data -> {
+            ComponentData componentData = groupedData.getOrDefault(data.getComponentId(), new ComponentData(data.componentId));
+            componentData.add(data, interval);
+            groupedData.put(data.getComponentId(), componentData);
+        });
+
+        return new ArrayList<>(groupedData.values());
+    }
+
+    public ComponentData findByCoopComponent(Coop coop, CoopComponent component, MetricInterval interval) {
+
+        long beginDt = MetricInterval.YEAR.periodBeginEpoch();
+
+        String query = String.format("""
+                SELECT
+                    `COMPONENT_ID` AS `componentId`,
+                    CAST(`%s` AS CHAR) AS `date`,
+                    `METRIC` AS `metric`,
+                    ROUND(AVG(`VALUE`)) as `value`
+                FROM metrics
+                WHERE `COOP_ID` = :coopId
+                AND `DT` >= :dt
+                AND `COMPONENT_ID` = :componentId
+                GROUP BY `COMPONENT_ID`, `%s`, `METRIC`
+                ORDER BY `%s` ASC;
+        """, interval.groupingColumn(), interval.groupingColumn(), interval.groupingColumn());
+
+        List<ComponentDataRow> componentDataRows = sessionFactory.getCurrentSession().createNativeQuery(query)
+                .setParameter("coopId", coop.getId())
+                .setParameter("componentId", component.getComponentId())
+                .setParameter("dt", beginDt)
+                .setResultTransformer(new AliasToBeanResultTransformer(ComponentDataRow.class))
+                .list();
+
+        Map<String, ComponentData> groupedData = new HashMap<>();
+        componentDataRows.forEach(row -> {
+            ComponentData componentData = groupedData.getOrDefault(row.getComponentId(), new ComponentData(row.componentId));
+            componentData.add(row, interval);
+            groupedData.put(row.getComponentId(), componentData);
+        });
+
+        ComponentData result = groupedData.get(component.getComponentId());
+        if(result == null) {
+            result = new ComponentData(component.getComponentId());
+        }
+
+        return result;
+    }
+
+    private List<MetricDataRow> findByMetric(
             Coop coop,
             String metric,
             String column) {
@@ -88,12 +163,12 @@ public class MetricRepository extends AuthorizerScopedRepository<CoopMetric> {
         return sessionFactory.getCurrentSession().createNativeQuery(query)
                 .setParameter("coopId", coop.getId())
                 .setParameter("metric", metric)
-                .setResultTransformer(new AliasToBeanResultTransformer(MetricData.class))
+                .setResultTransformer(new AliasToBeanResultTransformer(MetricDataRow.class))
                 .list();
     }
 
-    public List<MetricData> formatLocalDate(
-            List<MetricData> data,
+    public List<MetricDataRow> formatLocalDate(
+            List<MetricDataRow> data,
             DateTimeFormatter fromFormat,
             DateTimeFormatter toFormat) {
 
@@ -120,7 +195,12 @@ public class MetricRepository extends AuthorizerScopedRepository<CoopMetric> {
         coopMetric.setMonth(Integer.parseInt(monthFormat.format(zdt)));
         coopMetric.setWeek(Integer.parseInt(weekFormat.format(zdt)));
         coopMetric.setDay(Integer.parseInt(dayFormat.format(zdt)));
-        coopMetric.setHour(Integer.parseInt(hourFormat.format(zdt)));
+
+        int hour = Integer.parseInt(hourFormat.format(zdt));
+        int quarterDay = (hour / 4) * 4;
+
+        coopMetric.setQuarterDay(quarterDay);
+        coopMetric.setHour(hour);
 
         coopMetric.setCoop(coop);
         coopMetric.setComponentId(componentId);
@@ -131,9 +211,55 @@ public class MetricRepository extends AuthorizerScopedRepository<CoopMetric> {
         return coopMetric;
     }
 
+    @Data
+    public static class ComponentData {
+
+        private final String componentId;
+        private List<Map<String, Object>> data;
+
+        @Getter(AccessLevel.NONE)
+        @Setter(AccessLevel.NONE)
+        private Map<String, Map<String, Object>> grouped;
+
+        private ComponentData(String componentId) {
+            this.componentId = componentId;
+            this.grouped = new HashMap<>();
+        }
+
+        public List<Map<String, Object>> getData() {
+            Comparator<String> natural = Comparator.naturalOrder();
+            return grouped.entrySet()
+                    .stream()
+                    .map(entry -> {
+                        entry.getValue().put("idx", entry.getKey());
+                        return entry.getValue();
+                    })
+                    .sorted((a, b) -> natural.compare((String) a.get("idx"), (String) b.get("idx")))
+                    .collect(Collectors.toList());
+        }
+
+        private void add(ComponentDataRow row, MetricInterval interval) {
+            String date = row.date;
+            String formatted = interval.formatDate(row.date);
+            Map<String, Object> data = grouped.getOrDefault(date, new HashMap<>());
+
+            data.put(row.metric, row.value);
+            data.put("date", formatted);
+            grouped.put(date, data);
+        }
+    }
 
     @Data
-    public static class MetricData {
+    public static class ComponentDataRow {
+        private String componentId;
+        private String date;
+        private String metric;
+        private Double value;
+    }
+
+    @Data
+    @AllArgsConstructor
+    public static class MetricDataRow {
         private String date;
         private Double value;
     }

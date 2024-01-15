@@ -76,6 +76,7 @@ CREATE TABLE IF NOT EXISTS `metrics` (
     `MONTH` int NOT NULL,
     `WEEK` int NOT NULL,
     `DAY` int NOT NULL,
+    `QUARTER_DAY` int NOT NULL,
     `HOUR` int NOT NULL,
 	`COOP_ID` varchar(32) NOT NULL,
     `COMPONENT_ID` varchar(32) NOT NULL,
@@ -87,5 +88,6 @@ CREATE TABLE IF NOT EXISTS `metrics` (
     INDEX (`COOP_ID`, `MONTH`, `METRIC`),
     INDEX (`COOP_ID`, `WEEK`, `METRIC`),
     INDEX (`COOP_ID`, `DAY`, `METRIC`),
+    INDEX (`COOP_ID`, `QUARTER_DAY`, `METRIC`),
     INDEX (`COOP_ID`, `HOUR`, `METRIC`)
  );

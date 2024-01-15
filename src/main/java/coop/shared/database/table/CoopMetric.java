@@ -28,6 +28,9 @@ public class CoopMetric implements Serializable, AuthorizerScopedTable {
     @Column(name="DAY")
     private int day;
 
+    @Column(name="QUARTER_DAY")
+    private int quarterDay;
+
     @Column(name="HOUR")
     private int hour;
 

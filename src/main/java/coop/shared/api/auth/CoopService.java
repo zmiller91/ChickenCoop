@@ -84,7 +84,7 @@ public class CoopService {
             throw new NotFound("Coop not found.");
         }
 
-        List<MetricRepository.MetricData> data = metricRepository.findByMetricHourly(coop, metric);
+        List<MetricRepository.MetricDataRow> data = metricRepository.findByMetricHourly(coop, metric);
         return new GetCoopDataResponse(coopId, data);
     }
 
@@ -117,6 +117,6 @@ public class CoopService {
     public record UpdateCoopSettingsResponse(CoopSettingsDAO settings){};
 
     public record GetCoopDataRequest(String coopId, String metric){}
-    public record GetCoopDataResponse(String coopId, List<MetricRepository.MetricData> data){}
+    public record GetCoopDataResponse(String coopId, List<MetricRepository.MetricDataRow> data){}
 
 }
