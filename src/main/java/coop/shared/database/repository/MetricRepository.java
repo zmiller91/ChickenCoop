@@ -74,8 +74,6 @@ public class MetricRepository extends AuthorizerScopedRepository<CoopMetric> {
 
     public List<ComponentData> findByCoop(Coop coop, MetricInterval interval) {
 
-        long beginDt = MetricInterval.YEAR.periodBeginEpoch();
-
         String query = String.format("""
                 SELECT
                     `COMPONENT_ID` AS `componentId`,
@@ -91,7 +89,7 @@ public class MetricRepository extends AuthorizerScopedRepository<CoopMetric> {
 
         List<ComponentDataRow> componentDataRows = sessionFactory.getCurrentSession().createNativeQuery(query)
                 .setParameter("coopId", coop.getId())
-                .setParameter("dt", beginDt)
+                .setParameter("dt", interval.periodBeginEpoch())
                 .setResultTransformer(new AliasToBeanResultTransformer(ComponentDataRow.class))
                 .list();
 
@@ -106,8 +104,6 @@ public class MetricRepository extends AuthorizerScopedRepository<CoopMetric> {
     }
 
     public ComponentData findByCoopComponent(Coop coop, CoopComponent component, MetricInterval interval) {
-
-        long beginDt = MetricInterval.YEAR.periodBeginEpoch();
 
         String query = String.format("""
                 SELECT
@@ -126,7 +122,7 @@ public class MetricRepository extends AuthorizerScopedRepository<CoopMetric> {
         List<ComponentDataRow> componentDataRows = sessionFactory.getCurrentSession().createNativeQuery(query)
                 .setParameter("coopId", coop.getId())
                 .setParameter("componentId", component.getComponentId())
-                .setParameter("dt", beginDt)
+                .setParameter("dt", interval.periodBeginEpoch())
                 .setResultTransformer(new AliasToBeanResultTransformer(ComponentDataRow.class))
                 .list();
 
