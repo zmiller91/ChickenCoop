@@ -111,7 +111,7 @@ public class MetricRepository extends AuthorizerScopedRepository<CoopMetric> {
         DateTimeFormatter monthFormat = DateTimeFormatter.ofPattern("yyyyMM");
         DateTimeFormatter weekFormat = DateTimeFormatter.ofPattern("yyyyww");
         DateTimeFormatter dayFormat = DateTimeFormatter.ofPattern("yyyyMMdd");
-        DateTimeFormatter hourFormat = DateTimeFormatter.ofPattern("yyyyMMddhh");
+        DateTimeFormatter hourFormat = DateTimeFormatter.ofPattern("yyyyMMddHH");
 
         CoopMetric coopMetric = new CoopMetric();
 
