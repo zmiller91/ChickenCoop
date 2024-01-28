@@ -4,10 +4,10 @@ import coop.local.comms.Communication;
 import coop.local.comms.message.MessageReceived;
 import coop.local.mqtt.*;
 import coop.local.service.PiRunner;
-import coop.shared.database.repository.CoopRepository;
-import coop.shared.database.repository.MetricRepository;
-import coop.shared.database.repository.PiRepository;
+import coop.shared.database.repository.*;
+import coop.shared.database.table.ComponentSerial;
 import coop.shared.database.table.Coop;
+import coop.shared.database.table.CoopComponent;
 import coop.shared.database.table.Pi;
 import coop.shared.pi.metric.Metric;
 import lombok.Data;
@@ -61,6 +61,12 @@ public class CoopRunner extends PiRunner {
     private CoopRepository coopRepository;
 
     @Autowired
+    private ComponentRepository componentRepository;
+
+    @Autowired
+    private ComponentSerialRepository componentSerialRepository;
+
+    @Autowired
     private PiRepository piRepository;
 
     @Autowired
@@ -103,16 +109,23 @@ public class CoopRunner extends PiRunner {
         ParsedMessage parsed = ParsedMessage.parse(message);
         if(coop != null && parsed != null && parsed.isValueDoubleType()) {
 
-            Metric metric = new Metric();
-            metric.setDt(System.currentTimeMillis());
-            metric.setCoopId(coop.getId());
-            metric.setComponentId(parsed.getComponentId());
-            metric.setMetric(parsed.getMetric());
-            metric.setValue(parsed.getValueAsDouble());
+            ComponentSerial serial = componentSerialRepository.findById(parsed.getComponentSerialNumber());
+            if(serial != null) {
 
-            publishMetricToMqtt(metric);
-            saveMetric(metric);
+                CoopComponent component = componentRepository.findBySerialNumber(coop, serial);
+                if (component != null) {
 
+                    Metric metric = new Metric();
+                    metric.setDt(System.currentTimeMillis());
+                    metric.setCoopId(coop.getId());
+                    metric.setComponentId(component.getComponentId());
+                    metric.setMetric(parsed.getMetric());
+                    metric.setValue(parsed.getValueAsDouble());
+
+                    publishMetricToMqtt(metric);
+                    saveMetric(metric);
+                }
+            }
         }
     }
 

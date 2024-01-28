@@ -1,17 +1,20 @@
 package coop.local;
 
+import com.google.common.base.Strings;
 import coop.local.comms.message.MessageReceived;
 import lombok.Getter;
+
+import java.util.stream.Stream;
 
 @Getter
 public class ParsedMessage {
 
-    private final String componentId;
+    private final String componentSerialNumber;
     private final String metric;
     private final String value;
 
-    public ParsedMessage(String componentId, String metric, String value) {
-        this.componentId = componentId;
+    public ParsedMessage(String componentSerialNumber, String metric, String value) {
+        this.componentSerialNumber = componentSerialNumber;
         this.metric = metric;
         this.value = value;
     }
@@ -37,6 +40,11 @@ public class ParsedMessage {
 
         String[] parts = received.getMessage().split("::");
         if(parts.length != 3) {
+            return null;
+        }
+
+        boolean containsEmptyElements = Stream.of(parts).anyMatch(Strings::isNullOrEmpty);
+        if(containsEmptyElements) {
             return null;
         }
 

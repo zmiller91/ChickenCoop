@@ -17,7 +17,7 @@ public class CustomExceptionHandler {
 
     @ExceptionHandler(NotFound.class)
     public ResponseEntity<ExceptionMessage> handleNotFound(BadRequest ex, WebRequest request) {
-        ExceptionMessage error = new ExceptionMessage("Not Found", ex.getMessage());
+        ExceptionMessage error = new ExceptionMessage(ex.getMessage(), ex.getMessage());
         return new ResponseEntity<>(error, HttpStatus.NOT_FOUND);
     }
 }

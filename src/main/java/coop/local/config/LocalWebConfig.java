@@ -62,7 +62,7 @@ public class LocalWebConfig implements WebServerFactoryCustomizer<ConfigurableSe
         if (isPi) {
             serial = new PiSerialCommunication("/dev/ttyAMA0");
         } else {
-            serial = new DevSerialCommunication("COM6");
+            serial = new DevSerialCommunication("COM4");
         }
 
         return new Communication(serial);
