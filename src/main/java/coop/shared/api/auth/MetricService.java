@@ -45,7 +45,7 @@ public class MetricService {
         }
 
         // TODO: These wont display on the UI unless there is data. Fix that.
-        List<MetricRepository.ComponentData> data = metricRepository.findByCoop(coop, MetricInterval.YEAR);
+        List<MetricRepository.ComponentData> data = metricRepository.findByCoop(coop, MetricInterval.DAY);
         return new GetCoopMetricsResult(data);
     }
 

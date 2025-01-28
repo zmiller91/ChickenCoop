@@ -9,6 +9,8 @@ import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.EnableTransactionManagement;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
+import java.math.BigInteger;
 import java.time.*;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeFormatterBuilder;
@@ -100,7 +102,55 @@ public class MetricRepository extends AuthorizerScopedRepository<CoopMetric> {
             groupedData.put(data.getComponentId(), componentData);
         });
 
+        for(ComponentData data : groupedData.values()) {
+            data.setBatteryLevel(getBatteryLevel(coop, data.componentId));
+            data.setLastUpdate(getLastUpdate(coop, data.getComponentId()));
+        }
+
         return new ArrayList<>(groupedData.values());
+    }
+
+    public Long getLastUpdate(Coop coop, String component) {
+        String query = """
+                SELECT MAX(DT)
+                FROM metrics
+                WHERE COOP_ID = :coopId
+                AND COMPONENT_ID = :componentId
+                """;
+
+        List<Object> result = sessionFactory.getCurrentSession().createNativeQuery(query)
+                .setParameter("coopId", coop.getId())
+                .setParameter("componentId", component)
+                .list();
+
+        return result.stream().map(r -> ((BigInteger) r).longValue()).findFirst().orElse(null);
+    }
+
+    public Long getLastUpdate(Coop coop, CoopComponent component) {
+        return getLastUpdate(coop, component.getComponentId());
+    }
+
+    public Double getBatteryLevel(Coop coop, String component) {
+        String query = """
+                SELECT `VALUE`
+                FROM metrics
+                WHERE COOP_ID = :coopId
+                AND COMPONENT_ID = :componentId
+                AND METRIC = 'BATTERY'
+                ORDER BY DT DESC
+                LIMIT 1
+                """;
+
+        List<Object> result = sessionFactory.getCurrentSession().createNativeQuery(query)
+                .setParameter("coopId", coop.getId())
+                .setParameter("componentId", component)
+                .list();
+
+        return result.stream().map(r -> ((Float) r).doubleValue()).findFirst().orElse(null);
+    }
+
+    public Double getBatteryLevel(Coop coop, CoopComponent component) {
+        return getBatteryLevel(coop, component.getComponentId());
     }
 
     public ComponentData findByCoopComponent(Coop coop, CoopComponent component, MetricInterval interval) {
@@ -136,6 +186,13 @@ public class MetricRepository extends AuthorizerScopedRepository<CoopMetric> {
         ComponentData result = groupedData.get(component.getComponentId());
         if(result == null) {
             result = new ComponentData(component.getComponentId());
+        } else {
+
+            Long lastUpdate = getLastUpdate(coop, component);
+            result.setLastUpdate(lastUpdate);
+
+            Double batteryLevel = getBatteryLevel(coop, component);
+            result.setBatteryLevel(batteryLevel);
         }
 
         return result;
@@ -211,6 +268,8 @@ public class MetricRepository extends AuthorizerScopedRepository<CoopMetric> {
     public static class ComponentData {
 
         private final String componentId;
+        private Long lastUpdate;
+        private Double batteryLevel;
         private List<Map<String, Object>> data;
 
         @Getter(AccessLevel.NONE)
