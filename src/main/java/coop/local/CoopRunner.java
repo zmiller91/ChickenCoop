@@ -2,21 +2,18 @@ package coop.local;
 
 import coop.local.comms.Communication;
 import coop.local.comms.message.MessageReceived;
+import coop.local.comms.message.parsers.MessageParser;
+import coop.local.comms.message.parsers.ParsedMessage;
 import coop.local.mqtt.*;
 import coop.local.service.PiRunner;
 import coop.shared.database.repository.*;
-import coop.shared.database.table.ComponentSerial;
-import coop.shared.database.table.Coop;
-import coop.shared.database.table.CoopComponent;
-import coop.shared.database.table.Pi;
+import coop.shared.database.table.*;
 import coop.shared.pi.metric.Metric;
-import lombok.Data;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.EnableTransactionManagement;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.Duration;
 import java.util.Arrays;
 import java.util.List;
 
@@ -106,24 +103,35 @@ public class CoopRunner extends PiRunner {
         System.out.println("Received: " + message.getRaw());
 
         Coop coop = coop();
-        ParsedMessage parsed = ParsedMessage.parse(message);
-        if(coop != null && parsed != null && parsed.isValueDoubleType()) {
+        if(coop != null) {
 
-            ComponentSerial serial = componentSerialRepository.findById(parsed.getComponentSerialNumber());
-            if(serial != null) {
+            String componentSerial = MessageParser.getComponentSerial(message);
+            if(componentSerial != null) {
 
-                CoopComponent component = componentRepository.findBySerialNumber(coop, serial);
-                if (component != null) {
+                ComponentSerial serial = componentSerialRepository.findById(componentSerial);
+                if(serial != null) {
 
-                    Metric metric = new Metric();
-                    metric.setDt(System.currentTimeMillis());
-                    metric.setCoopId(coop.getId());
-                    metric.setComponentId(component.getComponentId());
-                    metric.setMetric(parsed.getMetric());
-                    metric.setValue(parsed.getValueAsDouble());
+                    ComponentType componentType = serial.getComponentType();
+                    MessageParser parser = MessageParser.forComponentType(componentType);
+                    if(parser != null) {
 
-                    publishMetricToMqtt(metric);
-                    saveMetric(metric);
+                        List<ParsedMessage> parsedMessages = parser.parse(message);
+                        CoopComponent component = componentRepository.findBySerialNumber(coop, serial);
+                        if (component != null && parsedMessages != null) {
+
+                            for (ParsedMessage parsed : parsedMessages) {
+                                Metric metric = new Metric();
+                                metric.setDt(System.currentTimeMillis());
+                                metric.setCoopId(coop.getId());
+                                metric.setComponentId(component.getComponentId());
+                                metric.setMetric(parsed.getMetric());
+                                metric.setValue(parsed.getValueAsDouble());
+
+                                publishMetricToMqtt(metric);
+                                saveMetric(metric);
+                            }
+                        }
+                    }
                 }
             }
         }

@@ -1,10 +1,6 @@
-package coop.local;
+package coop.local.comms.message.parsers;
 
-import com.google.common.base.Strings;
-import coop.local.comms.message.MessageReceived;
 import lombok.Getter;
-
-import java.util.stream.Stream;
 
 @Getter
 public class ParsedMessage {
@@ -34,20 +30,5 @@ public class ParsedMessage {
         } catch (NumberFormatException e) {
             return false;
         }
-    }
-
-    public static ParsedMessage parse(MessageReceived received) {
-
-        String[] parts = received.getMessage().split("::");
-        if(parts.length != 3) {
-            return null;
-        }
-
-        boolean containsEmptyElements = Stream.of(parts).anyMatch(Strings::isNullOrEmpty);
-        if(containsEmptyElements) {
-            return null;
-        }
-
-        return new ParsedMessage(parts[0], parts[1], parts[2]);
     }
 }
