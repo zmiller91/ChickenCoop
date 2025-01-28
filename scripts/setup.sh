@@ -12,4 +12,11 @@ else
 	touch ~/pi-build/installed.txt
 fi
 
+if [ -f ~/pi-build/log.txt ]; then
+	echo "Log file already created."
+else
+	echo "Creating log file"
+	touch ~/pi-build/log.txt
+fi
+
 

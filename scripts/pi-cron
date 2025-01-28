@@ -1,2 +1,2 @@
-@reboot ./home/pi/projects/ChickenCoop/scripts/on-boot.sh
-8 * * * * ./home/pi/projects/ChickenCoop/scripts/update-check.sh 
+@reboot /home/pi/projects/ChickenCoop/scripts/on-boot.sh
+8 * * * * /home/pi/projects/ChickenCoop/scripts/update-check.sh 
