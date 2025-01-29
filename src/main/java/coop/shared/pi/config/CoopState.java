@@ -7,6 +7,6 @@ import java.util.List;
 @Data
 public class CoopState {
     private String coopId;
-    private String welcome;
+    private String awsIotThingId;
     private List<ComponentState> components;
 }

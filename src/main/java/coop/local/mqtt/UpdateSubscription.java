@@ -1,7 +1,7 @@
 package coop.local.mqtt;
 
 import com.google.gson.Gson;
-import coop.local.LocalStateProvider;
+import coop.local.state.LocalStateProvider;
 import coop.shared.pi.config.IotShadowRequest;
 import coop.shared.pi.config.IotState;
 import software.amazon.awssdk.crt.mqtt.MqttMessage;
@@ -24,8 +24,7 @@ public class UpdateSubscription extends ShadowSubscription {
         IotState state = request.getState();
 
         if (state.getDesired() != null) {
-            provider.setConfig(state.getDesired());
-            provider.reportBackToIot();
+            provider.put(state.getDesired());
         }
     }
 }

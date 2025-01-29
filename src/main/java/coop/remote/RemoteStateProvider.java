@@ -19,7 +19,7 @@ public class RemoteStateProvider extends StateProvider {
     @Autowired
     private AWSIotData awsIot;
 
-    public void put(Coop coop, CoopState coopState) {
+    public void put(CoopState coopState) {
 
         IotState state = new IotState();
         state.setDesired(coopState);
@@ -28,7 +28,7 @@ public class RemoteStateProvider extends StateProvider {
         iotShadowRequest.setState(state);
 
         UpdateThingShadowRequest updateRequest = new UpdateThingShadowRequest();
-        updateRequest.setThingName(coop.getPi().getAwsIotThingId());
+        updateRequest.setThingName(coopState.getAwsIotThingId());
         updateRequest.setPayload(ByteBuffer.wrap(new Gson().toJson(iotShadowRequest).getBytes()));
 
         awsIot.updateThingShadow(updateRequest);

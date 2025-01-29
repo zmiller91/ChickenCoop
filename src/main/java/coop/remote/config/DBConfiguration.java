@@ -18,7 +18,7 @@ public class DBConfiguration {
         return DataSourceBuilder.create()
                 .username("root")
                 .password("password")
-                .url("jdbc:mysql://localhost:3306/coop")
+                .url("jdbc:mysql://localhost:3306/local_pi")
                 .driverClassName("com.mysql.cj.jdbc.Driver")
                 .build();
     }

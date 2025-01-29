@@ -2,7 +2,7 @@ package coop.local.config;
 
 import coop.local.PiContext;
 import coop.local.CoopRunner;
-import coop.local.LocalStateProvider;
+import coop.local.state.DatabaseStateProvider;
 import coop.local.comms.Communication;
 import coop.local.comms.serial.DevSerialCommunication;
 import coop.local.comms.serial.PiSerialCommunication;
@@ -16,6 +16,7 @@ import org.springframework.boot.web.server.WebServerFactoryCustomizer;
 import org.springframework.boot.web.servlet.server.ConfigurableServletWebServerFactory;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Primary;
 import org.springframework.core.env.Environment;
 import org.springframework.core.task.SimpleAsyncTaskExecutor;
 import org.springframework.core.task.TaskExecutor;
@@ -68,8 +69,13 @@ public class LocalWebConfig implements WebServerFactoryCustomizer<ConfigurableSe
         return new Communication(serial);
     }
 
+    /**
+     * Data can either be stored locally or it can be sent to AWS and stored remotely. Change this function's input
+     * parameter type to dictate which should be used.
+     */
     @Bean
-    public StateProvider stateProvider(LocalStateProvider localStateProvider) {
+    @Primary
+    public StateProvider stateProvider(DatabaseStateProvider localStateProvider) {
         return localStateProvider;
     }
 

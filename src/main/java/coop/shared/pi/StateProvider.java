@@ -16,36 +16,5 @@ public abstract class StateProvider {
     @Autowired
     private ComponentRepository componentRepository;
 
-    public abstract void put(Coop coop, CoopState coopState);
-
-    public CoopState forCoop(Coop coop) {
-
-        if(coop == null) {
-            return new CoopState();
-        }
-
-        List<ComponentState> components = componentRepository
-                .findByCoop(coop)
-                .stream()
-                .map( component -> {
-
-                    Map<String, String> config = new HashMap<>();
-                    for (ComponentConfig c : component.getConfig()) {
-                        config.put(c.getKey(), c.getValue());
-                    }
-
-                    ComponentState state = new ComponentState();
-                    state.setComponentId(component.getComponentId());
-                    state.setConfig(config);
-                    return state;
-
-                }).toList();
-
-
-        CoopState config = new CoopState();
-        config.setCoopId(coop.getId());
-        config.setComponents(components);
-        return config;
-
-    }
+    public abstract void put(CoopState coopState);
 }

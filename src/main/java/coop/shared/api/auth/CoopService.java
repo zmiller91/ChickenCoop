@@ -7,6 +7,7 @@ import coop.shared.database.table.Coop;
 import coop.shared.database.table.Pi;
 import coop.shared.exception.BadRequest;
 import coop.shared.exception.NotFound;
+import coop.shared.pi.StateFactory;
 import coop.shared.pi.StateProvider;
 import coop.shared.pi.config.CoopState;
 import coop.shared.security.AuthContext;
@@ -38,6 +39,9 @@ public class CoopService {
     @Autowired
     MetricRepository metricRepository;
 
+    @Autowired
+    private StateFactory stateFactory;
+
     @PostMapping("/register")
     public RegisterCoopResponse create(@RequestBody RegisterCoopRequest request) {
 
@@ -48,9 +52,8 @@ public class CoopService {
 
         Coop coop = coopRepository.create(userContext.getCurrentUser(), request.name, pi);
 
-        CoopState state = stateProvider.forCoop(coop);
-        state.setWelcome("Hello " + userContext.getCurrentUser().getUsername());
-        stateProvider.put(coop, state);
+        CoopState state = stateFactory.forCoop(coop);
+        stateProvider.put(state);
 
         return new RegisterCoopResponse(new CoopDAO(coop.getId(), coop.getName()));
     }
@@ -96,9 +99,8 @@ public class CoopService {
             throw new NotFound("Coop not found.");
         }
 
-        CoopState coopState = stateProvider.forCoop(coop);
-        coopState.setWelcome(request.settings.message);
-        stateProvider.put(coop, coopState);
+        CoopState coopState = stateFactory.forCoop(coop);
+        stateProvider.put(coopState);
 
         return new UpdateCoopSettingsResponse(request.settings);
     }

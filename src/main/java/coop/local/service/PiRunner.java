@@ -14,9 +14,6 @@ import java.util.List;
 @Transactional
 public abstract class PiRunner implements Runnable {
 
-    @Autowired
-    private PiMqttClient client;
-
     private boolean shouldRun = true;
     private boolean isRunning = true;
 
@@ -24,7 +21,6 @@ public abstract class PiRunner implements Runnable {
         this.shouldRun = true;
         this.isRunning = true;
 
-        connect();
         init();
 
         while(this.shouldRun) {
@@ -44,18 +40,6 @@ public abstract class PiRunner implements Runnable {
         this.shouldRun = true;
     }
 
-    private void connect() {
-        try {
-
-            client().withSubscriptions(subscriptions()).connect();
-
-            // TODO: Apparently I need to wait a second before the subscription to take effect...
-            sleep(2000);
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
-    }
-
     protected void sleep(long millis) {
         try {
             Thread.sleep(millis);
@@ -64,18 +48,9 @@ public abstract class PiRunner implements Runnable {
         }
     }
 
-    protected PiMqttClient client() {
-        if (this.client == null) {
-            throw new IllegalStateException("Client is not initialized.");
-        }
-
-        return this.client;
-    }
-
     protected abstract void init();
     protected abstract void invoke();
     protected abstract void handleError(Throwable t);
-    protected abstract List<ShadowSubscription> subscriptions();
 
 
 }

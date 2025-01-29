@@ -6,6 +6,7 @@ import coop.shared.database.repository.ComponentSerialRepository;
 import coop.shared.database.repository.CoopRepository;
 import coop.shared.database.table.*;
 import coop.shared.exception.NotFound;
+import coop.shared.pi.StateFactory;
 import coop.shared.pi.StateProvider;
 import coop.shared.pi.config.CoopState;
 import coop.shared.security.AuthContext;
@@ -41,6 +42,9 @@ public class ComponentService {
     @Autowired
     private StateProvider stateProvider;
 
+    @Autowired
+    private StateFactory stateFactory;
+
     @PostMapping("/register")
     public RegisterComponentResponse create(@RequestBody RegisterComponentRequest request) {
 
@@ -64,6 +68,13 @@ public class ComponentService {
 
         ComponentType componentType = component.getSerial().getComponentType();
         componentType.initialConfig(component).forEach(config -> configRepository.persist(config));
+
+        componentRepository.flush();
+        configRepository.flush();
+        componentRepository.refresh(component);
+
+        CoopState state = stateFactory.forCoop(component.getCoop());
+        stateProvider.put(state);
 
         return new RegisterComponentResponse(coop.getId(), serialNumber.getSerialNumber(), component.getComponentId());
     }
@@ -107,8 +118,8 @@ public class ComponentService {
         Coop coop = component.getCoop();
         coopRepository.refresh(coop);
 
-        CoopState state = stateProvider.forCoop(component.getCoop());
-        stateProvider.put(component.getCoop(), state);
+        CoopState state = stateFactory.forCoop(component.getCoop());
+        stateProvider.put(state);
 
         return new PostComponentResponse();
     }

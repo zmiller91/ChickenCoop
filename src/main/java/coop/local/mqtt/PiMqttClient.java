@@ -66,9 +66,6 @@ public class PiMqttClient implements MqttClientConnectionEvents {
                 }
             }
 
-            // TODO: As soon as a connection is established the Pi should ask for a state update.
-
-            Thread.sleep(1000);
             return true;
 
         } catch (Exception e) {

@@ -6,14 +6,19 @@ import coop.local.comms.message.parsers.MessageParser;
 import coop.local.comms.message.parsers.ParsedMessage;
 import coop.local.mqtt.*;
 import coop.local.service.PiRunner;
-import coop.shared.database.repository.*;
-import coop.shared.database.table.*;
+//import coop.shared.database.repository.*;
+//import coop.shared.database.table.*;
+import coop.local.state.LocalStateProvider;
+import coop.shared.database.table.ComponentType;
+import coop.shared.pi.config.ComponentState;
+import coop.shared.pi.config.CoopState;
 import coop.shared.pi.metric.Metric;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.EnableTransactionManagement;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Duration;
 import java.util.Arrays;
 import java.util.List;
 
@@ -51,39 +56,23 @@ public class CoopRunner extends PiRunner {
     @Autowired
     private Communication communication;
 
-    @Autowired
-    private MetricRepository metricRepository;
+    private long lastStateRefresh = 0;
 
-    @Autowired
-    private CoopRepository coopRepository;
-
-    @Autowired
-    private ComponentRepository componentRepository;
-
-    @Autowired
-    private ComponentSerialRepository componentSerialRepository;
-
-    @Autowired
-    private PiRepository piRepository;
-
-    @Autowired
-    private PiContext piContext;
 
     @Override
     protected void init() {
-
         communication.addListener(MessageReceived.class, this::onMessageReceived);
         communication.beginReading();
-
-        // TODO: Move this somewhere else
-        PiMqttMessage message = new PiMqttMessage(ShadowTopic.GET.topic(), "{}");
-        publishToMqtt(message);
-
+        provider.init();
     }
 
     @Override
     protected void invoke() {
-
+        if(provider.getConfig() == null &&
+                Duration.ofSeconds(30).toMillis() < System.currentTimeMillis() - lastStateRefresh) {
+            provider.refreshState();
+            lastStateRefresh = System.currentTimeMillis();
+        }
     }
 
     @Override
@@ -91,76 +80,45 @@ public class CoopRunner extends PiRunner {
         System.out.println("Error: " + t.getMessage());
     }
 
-    @Override
-    public List<ShadowSubscription> subscriptions() {
-        return Arrays.asList(
-                new UpdateSubscription(provider),
-                new SyncConfigSubscription(provider)
-        );
-    }
-
     private void onMessageReceived(MessageReceived message) {
         System.out.println("Received: " + message.getRaw());
 
-        Coop coop = coop();
+        CoopState coop = provider.getConfig();
         if(coop != null) {
 
             String componentSerial = MessageParser.getComponentSerial(message);
             if(componentSerial != null) {
 
-                ComponentSerial serial = componentSerialRepository.findById(componentSerial);
-                if(serial != null) {
+                ComponentState component = coop
+                        .getComponents()
+                        .stream()
+                        .filter(c -> c.getSerialNumber().equals(componentSerial))
+                        .findFirst()
+                        .orElse(null);
 
-                    ComponentType componentType = serial.getComponentType();
+                if(component != null) {
+
+                    ComponentType componentType = component.getComponentType();
                     MessageParser parser = MessageParser.forComponentType(componentType);
                     if(parser != null) {
 
                         List<ParsedMessage> parsedMessages = parser.parse(message);
-                        CoopComponent component = componentRepository.findBySerialNumber(coop, serial);
-                        if (component != null && parsedMessages != null) {
+                        if (parsedMessages != null) {
 
                             for (ParsedMessage parsed : parsedMessages) {
                                 Metric metric = new Metric();
                                 metric.setDt(System.currentTimeMillis());
-                                metric.setCoopId(coop.getId());
+                                metric.setCoopId(coop.getCoopId());
                                 metric.setComponentId(component.getComponentId());
                                 metric.setMetric(parsed.getMetric());
                                 metric.setValue(parsed.getValueAsDouble());
 
-                                publishMetricToMqtt(metric);
-                                saveMetric(metric);
+                                provider.save(metric);
                             }
                         }
                     }
                 }
             }
         }
-    }
-
-    private void publishMetricToMqtt(Metric metric) {
-        PiMqttMessage mqttMessage = new PiMqttMessage(ShadowTopic.METRIC.topic(), metric);
-        client().publish(mqttMessage);
-    }
-
-    private void publishToMqtt(PiMqttMessage message) {
-        client().publish(message);
-    }
-
-    private void saveMetric(Metric metric) {
-        metricRepository.save(
-                coop(),
-                metric.getComponentId(),
-                System.currentTimeMillis(),
-                metric.getMetric(),
-                metric.getValue());
-    }
-
-    private Coop coop() {
-        if (this.provider.getConfig() == null || this.provider.getConfig().getCoopId() == null) {
-            return null;
-        }
-
-        Pi pi = piRepository.findById(piContext.piId());
-        return coopRepository.findById(pi, this.provider.getConfig().getCoopId());
     }
 }
