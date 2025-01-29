@@ -5,6 +5,7 @@ import coop.shared.database.table.CoopComponent;
 import coop.shared.database.table.CoopMetric;
 import lombok.*;
 import org.hibernate.transform.AliasToBeanResultTransformer;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.EnableTransactionManagement;
 import org.springframework.transaction.annotation.Transactional;
@@ -23,6 +24,9 @@ import java.util.stream.Collectors;
 @EnableTransactionManagement
 @Transactional
 public class MetricRepository extends AuthorizerScopedRepository<CoopMetric> {
+
+    @Autowired
+    private ComponentRepository componentRepository;
 
     @Override
     protected Class<CoopMetric> getObjClass() {
@@ -103,8 +107,11 @@ public class MetricRepository extends AuthorizerScopedRepository<CoopMetric> {
         });
 
         for(ComponentData data : groupedData.values()) {
-            data.setBatteryLevel(getBatteryLevel(coop, data.componentId));
+            CoopComponent component = componentRepository.findById(coop.getPi(), data.getComponentId());
+            data.setBatteryLevel(getBatteryLevel(coop, data.getComponentId()));
             data.setLastUpdate(getLastUpdate(coop, data.getComponentId()));
+            data.setComponentTypeDescription(component.getSerial().getComponentType().getDescription());
+            data.setComponentName(component.getName());
         }
 
         return new ArrayList<>(groupedData.values());
@@ -187,12 +194,12 @@ public class MetricRepository extends AuthorizerScopedRepository<CoopMetric> {
         if(result == null) {
             result = new ComponentData(component.getComponentId());
         } else {
-
             Long lastUpdate = getLastUpdate(coop, component);
-            result.setLastUpdate(lastUpdate);
-
             Double batteryLevel = getBatteryLevel(coop, component);
+            result.setLastUpdate(lastUpdate);
             result.setBatteryLevel(batteryLevel);
+            result.setComponentName(component.getName());
+            result.setComponentTypeDescription(component.getSerial().getComponentType().getDescription());
         }
 
         return result;
@@ -270,6 +277,8 @@ public class MetricRepository extends AuthorizerScopedRepository<CoopMetric> {
         private final String componentId;
         private Long lastUpdate;
         private Double batteryLevel;
+        private String componentTypeDescription;
+        private String componentName;
         private List<Map<String, Object>> data;
 
         @Getter(AccessLevel.NONE)

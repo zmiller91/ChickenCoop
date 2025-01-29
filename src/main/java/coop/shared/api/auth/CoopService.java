@@ -68,6 +68,17 @@ public class CoopService {
          return new ListCoopResponse(coops);
     }
 
+    @GetMapping("/{coopId}")
+    public GetCoopResponse get(@PathVariable("coopId") String coopId) {
+        Coop coop = coopRepository.findById(userContext.getCurrentUser(), coopId);
+        if(coop == null) {
+            throw new NotFound("Coop not found.");
+        }
+
+        CoopDAO coopDAO = new CoopDAO(coop.getId(), coop.getName());
+        return new GetCoopResponse(coopDAO);
+    }
+
     @GetMapping("/settings/{coopId}")
     public GetCoopSettingsResponse getSettings(@PathVariable("coopId") String coopId) {
         Coop coop = coopRepository.findById(userContext.getCurrentUser(), coopId);
@@ -109,6 +120,7 @@ public class CoopService {
     public record RegisterCoopResponse(CoopDAO coop){}
 
     public record ListCoopResponse(List<CoopDAO> coops){}
+    public record GetCoopResponse(CoopDAO coop){}
 
     public record CoopDAO(String id, String name){};
 

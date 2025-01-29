@@ -8,21 +8,24 @@ import java.util.stream.Stream;
 public enum ComponentType {
 
     DOOR("DOOR",
+            "Door",
             new ConfigKey("door.open", "Door Open Time"),
             new ConfigKey("door.close", "Door Close Time")),
-    WEATHER("WEATHER"),
-    FOOD("FOOD", new ConfigKey("food.alert.threshold", "Alert Threshold")),
-    WATER("WATER", new ConfigKey("water.alert.threshold", "Alert Threshold"));
+    WEATHER("WEATHER", "Weather Sensor"),
+    FOOD("FOOD", "Food Level Monitor", new ConfigKey("food.alert.threshold", "Alert Threshold")),
+    WATER("WATER", "Water Level Monitor", new ConfigKey("water.alert.threshold", "Alert Threshold"));
 
     private String name;
+    private String descr;
     private ConfigKey[] config;
 
-    ComponentType(String name) {
-        this(name, new ConfigKey[]{});
+    ComponentType(String name, String descr) {
+        this(name, descr, new ConfigKey[]{});
     }
 
-    ComponentType(String name, ConfigKey... config) {
+    ComponentType(String name, String descr, ConfigKey... config) {
         this.name = name;
+        this.descr = descr;
         this.config = config;
     }
 
@@ -43,6 +46,10 @@ public enum ComponentType {
         }
 
         return map;
+    }
+
+    public String getDescription() {
+        return descr;
     }
 
     public static ComponentType getByName(String name) {
