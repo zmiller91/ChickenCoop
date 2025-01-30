@@ -1,0 +1,5 @@
+version: 0.0
+os: linux
+files:
+  - source: ChickenCoop-1.0-SNAPSHOT.jar
+    destination: /home/ec2-user/coop
