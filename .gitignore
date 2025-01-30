@@ -2,6 +2,7 @@ certs/
 sql/ignore/
 *.idea
 target/
+logs/
 !.mvn/wrapper/maven-wrapper.jar
 !**/src/main/**/target/
 !**/src/test/**/target/
