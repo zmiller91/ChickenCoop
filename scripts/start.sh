@@ -1,1 +1,0 @@
-nohup sudo java -jar ChickenCoop-1.0-SNAPSHOT.jar --spring.profiles.active=remote &

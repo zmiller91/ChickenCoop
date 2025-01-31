@@ -4,9 +4,12 @@ files:
   - source: ChickenCoop-1.0-SNAPSHOT.jar
     destination: /home/ec2-user/coop
 hooks:
+  BeforeInstall:
+    - location: createtables.sh
+      timeout: 300
   ApplicationStart:
     - location: start.sh
       timeout: 300
-#  ApplicationStop:
-#    - location: shutdown.sh
-#      timeout: 300
+  ApplicationStop:
+    - location: shutdown.sh
+      timeout: 300

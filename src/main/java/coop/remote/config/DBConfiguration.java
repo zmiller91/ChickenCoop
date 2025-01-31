@@ -1,6 +1,14 @@
 package coop.remote.config;
 
+import com.amazonaws.services.secretsmanager.AWSSecretsManager;
+import com.amazonaws.services.secretsmanager.AWSSecretsManagerClientBuilder;
+import com.amazonaws.services.secretsmanager.model.GetSecretValueRequest;
+import com.amazonaws.services.secretsmanager.model.GetSecretValueResult;
+import com.google.gson.Gson;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 import org.hibernate.SessionFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.jdbc.DataSourceBuilder;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -14,13 +22,33 @@ import javax.sql.DataSource;
 public class DBConfiguration {
 
     @Bean
-    DataSource dataSource() {
-        return DataSourceBuilder.create()
-                .username("root")
-                .password("password")
-                .url("jdbc:mysql://localhost:3306/local_pi")
-                .driverClassName("com.mysql.cj.jdbc.Driver")
-                .build();
+    DataSource dataSource(@Value("${db.creds}") String creds, @Value("${db.user}") String username, @Value("${db.password}") String password) {
+
+        DataSourceBuilder builder = DataSourceBuilder.create()
+                .driverClassName("com.mysql.cj.jdbc.Driver");
+
+        if(creds != null) {
+
+            AWSSecretsManager secrets = AWSSecretsManagerClientBuilder.defaultClient();
+
+            GetSecretValueRequest request = new GetSecretValueRequest();
+            request.setSecretId(creds);
+            GetSecretValueResult response = secrets.getSecretValue(request);
+
+            JsonObject info = JsonParser.parseString(response.getSecretString()).getAsJsonObject();
+            builder.username(info.get("username").getAsString())
+                    .password(info.get("password").getAsString())
+                    .url("jdbc:mysql://" + info.get("host").getAsString() + "/local_pi");
+
+        } else {
+            builder.username("root")
+                    .password("password")
+                    .url("jdbc:mysql://localhost:3306/local_pi");
+        }
+
+
+
+        return builder.build();
     }
 
     @Bean
@@ -29,7 +57,6 @@ public class DBConfiguration {
         builder.scanPackages("coop.shared.*", "coop.remote.*");
         return builder.buildSessionFactory();
     }
-
 
     @Bean
     public PlatformTransactionManager transactionManager(SessionFactory sessionFactory) {
