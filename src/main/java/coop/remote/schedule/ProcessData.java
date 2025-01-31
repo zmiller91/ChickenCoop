@@ -61,6 +61,7 @@ public class ProcessData {
         messages.forEach(message -> {
             Metric metric = GSON.fromJson(message.getBody(), Metric.class);
 
+            //TODO: We should probably get this from the principal, since that's derived from the certificates.
             Pi pi = piRepository.findByClientId(metric.getClientId());
             if (pi != null) {
                 Coop coop = coopRepository.findById(pi, metric.getCoopId());
