@@ -31,7 +31,7 @@ public class DBConfiguration {
         log.error("ZZZ This should be present in the logs.");
 
         DataSourceBuilder builder = DataSourceBuilder.create()
-                .driverClassName("software.amazon.jdbc.Driver");
+                .driverClassName("com.mysql.cj.jdbc.Driver");
         log.info("ZZZ Are creds present: " + !Strings.isNullOrEmpty(creds));
         if(!Strings.isNullOrEmpty(creds)) {
 
@@ -53,10 +53,9 @@ public class DBConfiguration {
             log.info("ZZZ Password: " + p);
             log.info("ZZZ URL: " + "jdbc:mysql://" + h + "/local_pi");
 
-            builder.username(info.get("username").getAsString())
-                    .password(info.get("password").getAsString())
-//                    .url("jdbc:mysql://" + info.get("host").getAsString() + ":3306/local_pi?ssl=true")
-                    .url("jdbc:mysql://" + h + ":3306/local_pi?user=" + u + "&password=" + p);
+            builder.username(u)
+                    .password(p)
+                    .url("jdbc:mysql://" + h + ":3306/local_pi");
 
         } else {
             builder.username(username)
