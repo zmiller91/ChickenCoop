@@ -48,7 +48,7 @@ public class DBConfiguration {
 
             builder.username(info.get("username").getAsString())
                     .password(info.get("password").getAsString())
-                    .url("jdbc:mysql://" + info.get("host").getAsString() + "/local_pi");
+                    .url("jdbc:mysql://" + info.get("host").getAsString() + ":3306/local_pi");
 
         } else {
             builder.username(username)
