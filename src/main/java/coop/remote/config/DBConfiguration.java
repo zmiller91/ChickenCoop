@@ -46,7 +46,7 @@ public class DBConfiguration {
             JsonObject info = JsonParser.parseString(response.getSecretString()).getAsJsonObject();
 
             String u = info.get("username").getAsString();
-            String p = URLEncoder.encode(info.get("password").getAsString());
+            String p = info.get("password").getAsString();
             String h = info.get("host").getAsString();
 
             log.info("ZZZ Username: " + u);
