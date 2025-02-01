@@ -3,6 +3,8 @@ os: linux
 files:
   - source: ChickenCoop-1.0-SNAPSHOT.jar
     destination: /home/ec2-user/coop
+  - source: tables.sql
+    destination: /home/ec2-user/coop
   - source: createtables.sh
     destination: /home/ec2-user/coop
   - source: start.sh
@@ -10,7 +12,7 @@ files:
   - source: shutdown.sh
     destination: /home/ec2-user/coop
 hooks:
-  BeforeInstall:
+  AfterInstall:
     - location: createtables.sh
       timeout: 300
   ApplicationStart:
