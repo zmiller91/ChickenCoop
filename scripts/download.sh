@@ -4,10 +4,11 @@ set -e
 ./setup.sh
 
 cd /home/pi/projects/ChickenCoop
+git checkout pi
 git remote update
 if [ $(git rev-parse HEAD) != $(git rev-parse @{u}) ]; then
 	echo "Git workspace out of date. Updating."
-	git pull origin master --rebase
+	git pull origin pi --rebase
 else
 	echo "Git workspace up to date."
 fi
