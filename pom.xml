@@ -188,7 +188,7 @@
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-maven-plugin</artifactId>
         <configuration>
-          <mainClass>coop.local.Main</mainClass>
+          <mainClass>coop.remote.MyApplication</mainClass>
         </configuration>
         <executions>
           <execution>
