@@ -29,7 +29,7 @@ public class DBConfiguration {
     DataSource dataSource(@Value("${db.creds}") String creds, @Value("${db.user}") String username, @Value("${db.password}") String password) {
 
         DataSourceBuilder builder = DataSourceBuilder.create()
-                .driverClassName("com.mysql.cj.jdbc.Driver");
+                .driverClassName("software.amazon.jdbc.Driver");
 
         if(!Strings.isNullOrEmpty(creds)) {
 
@@ -43,9 +43,9 @@ public class DBConfiguration {
 
             JsonObject info = JsonParser.parseString(response.getSecretString()).getAsJsonObject();
 
-            String u = "ChickenCoopProd";
-            String p = "aZlGRCDQMTVS4XVccg7_Cnr8,HwIM5";
-            String h = "codedeploypipelinestack-mysqlinstance1ff16bc1-wmtp4t0ixz3p.c78iqmoasiqg.us-east-1.rds.amazonaws.com";
+            String u = info.get("username").getAsString();
+            String p = URLEncoder.encode(info.get("password").getAsString());
+            String h = info.get("host").getAsString();
 
             log.info("ZZZ Username: " + u);
             log.info("ZZZ Password: " + p);
@@ -54,7 +54,7 @@ public class DBConfiguration {
             builder.username(info.get("username").getAsString())
                     .password(info.get("password").getAsString())
 //                    .url("jdbc:mysql://" + info.get("host").getAsString() + ":3306/local_pi?ssl=true")
-                    .url("jdbc:mysql://" + h + ":3306/useSSSL=false&local_pi?user=" + u + "&password=" + p);
+                    .url("jdbc:mysql://" + h + ":3306/local_pi?user=" + u + "&password=" + p);
 
         } else {
             builder.username(username)
