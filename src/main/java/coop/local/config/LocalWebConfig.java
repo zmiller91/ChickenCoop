@@ -8,6 +8,7 @@ import coop.local.comms.serial.DevSerialCommunication;
 import coop.local.comms.serial.PiSerialCommunication;
 import coop.local.comms.serial.SerialCommunication;
 import coop.local.mqtt.PiMqttClient;
+import coop.local.state.MqttStateProvider;
 import coop.shared.pi.StateProvider;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
@@ -75,7 +76,7 @@ public class LocalWebConfig implements WebServerFactoryCustomizer<ConfigurableSe
      */
     @Bean
     @Primary
-    public StateProvider stateProvider(DatabaseStateProvider localStateProvider) {
+    public StateProvider stateProvider(MqttStateProvider localStateProvider) {
         return localStateProvider;
     }
 
