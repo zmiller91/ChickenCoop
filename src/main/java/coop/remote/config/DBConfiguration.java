@@ -4,6 +4,7 @@ import com.amazonaws.services.secretsmanager.AWSSecretsManager;
 import com.amazonaws.services.secretsmanager.AWSSecretsManagerClientBuilder;
 import com.amazonaws.services.secretsmanager.model.GetSecretValueRequest;
 import com.amazonaws.services.secretsmanager.model.GetSecretValueResult;
+import com.google.common.base.Strings;
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
@@ -27,7 +28,7 @@ public class DBConfiguration {
         DataSourceBuilder builder = DataSourceBuilder.create()
                 .driverClassName("com.mysql.cj.jdbc.Driver");
 
-        if(creds != null) {
+        if(!Strings.isNullOrEmpty(creds)) {
 
             AWSSecretsManager secrets = AWSSecretsManagerClientBuilder.defaultClient();
 
@@ -41,8 +42,8 @@ public class DBConfiguration {
                     .url("jdbc:mysql://" + info.get("host").getAsString() + "/local_pi");
 
         } else {
-            builder.username("root")
-                    .password("password")
+            builder.username(username)
+                    .password(password)
                     .url("jdbc:mysql://localhost:3306/local_pi");
         }
 
