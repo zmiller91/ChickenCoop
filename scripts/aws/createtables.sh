@@ -3,4 +3,5 @@ HOST=$(echo $SECRET_STRING | jq -r .host)
 USERNAME=$(echo $SECRET_STRING | jq -r .username)
 PASSWORD=$(echo $SECRET_STRING | jq -r .password)
 
+cd /home/ec2-user/coop
 mysql -u $USERNAME -p"${PASSWORD}" -h "${HOST}" < tables.sql
