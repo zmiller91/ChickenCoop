@@ -8,6 +8,7 @@ import com.google.common.base.Strings;
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
+import lombok.extern.log4j.Log4j2;
 import org.hibernate.SessionFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.jdbc.DataSourceBuilder;
@@ -19,6 +20,7 @@ import org.springframework.transaction.PlatformTransactionManager;
 
 import javax.sql.DataSource;
 
+@Log4j2
 @Configuration
 public class DBConfiguration {
 
@@ -30,6 +32,8 @@ public class DBConfiguration {
 
         if(!Strings.isNullOrEmpty(creds)) {
 
+            log.info("ZZZ Connecting to DB via secrets manager");
+
             AWSSecretsManager secrets = AWSSecretsManagerClientBuilder.defaultClient();
 
             GetSecretValueRequest request = new GetSecretValueRequest();
@@ -37,6 +41,11 @@ public class DBConfiguration {
             GetSecretValueResult response = secrets.getSecretValue(request);
 
             JsonObject info = JsonParser.parseString(response.getSecretString()).getAsJsonObject();
+
+            log.info("ZZZ Username: " + info.get("username").getAsString());
+            log.info("ZZZ Password: " + info.get("password").getAsString());
+            log.info("ZZZ URL: " + "jdbc:mysql://" + info.get("host").getAsString() + "/local_pi");
+
             builder.username(info.get("username").getAsString())
                     .password(info.get("password").getAsString())
                     .url("jdbc:mysql://" + info.get("host").getAsString() + "/local_pi");
