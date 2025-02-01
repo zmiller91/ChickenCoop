@@ -28,9 +28,11 @@ public class DBConfiguration {
     @Bean
     DataSource dataSource(@Value("${db.creds}") String creds, @Value("${db.user}") String username, @Value("${db.password}") String password) {
 
+        log.error("ZZZ This should be present in the logs.");
+
         DataSourceBuilder builder = DataSourceBuilder.create()
                 .driverClassName("software.amazon.jdbc.Driver");
-
+        log.info("ZZZ Are creds present: " + !Strings.isNullOrEmpty(creds));
         if(!Strings.isNullOrEmpty(creds)) {
 
             log.info("ZZZ Connecting to DB via secrets manager");
