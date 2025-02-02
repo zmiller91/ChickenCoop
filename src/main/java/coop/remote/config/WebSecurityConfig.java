@@ -76,6 +76,7 @@ public class WebSecurityConfig {
             Ssl ssl = new Ssl();
             ssl.setEnabled(true);
             ssl.setKeyStore("/home/ec2-user/apipisprout.pfx");
+            ssl.setKeyStorePassword("password");
             ssl.setKeyStoreType("PKCS12");
             factory.setSsl(ssl);
         };
