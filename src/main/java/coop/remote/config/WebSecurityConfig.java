@@ -4,6 +4,9 @@ import coop.shared.security.AuthenticationFilter;
 import coop.shared.security.UserAuthenticationManager;
 import coop.shared.security.AuthContext;
 import jakarta.servlet.DispatcherType;
+import org.springframework.boot.web.server.Ssl;
+import org.springframework.boot.web.server.WebServerFactoryCustomizer;
+import org.springframework.boot.web.servlet.server.ConfigurableServletWebServerFactory;
 import org.springframework.context.annotation.Configuration;
 
 import org.springframework.security.config.Customizer;
@@ -23,6 +26,7 @@ import org.springframework.web.cors.CorsConfigurationSource;
 @Configuration
 @EnableWebSecurity
 public class WebSecurityConfig {
+
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http, AuthenticationFilter authenticationFilter) throws Exception {
         return http
@@ -65,4 +69,16 @@ public class WebSecurityConfig {
     public AuthContext authContext() {
         return new AuthContext();
     }
+
+//    @Bean
+//    public WebServerFactoryCustomizer<ConfigurableServletWebServerFactory> containerCustomizer() {
+//        return factory -> {
+//            Ssl ssl = new Ssl();
+//            ssl.setEnabled(true);
+//            ssl.setKeyStore("C:\\Users\\zmiller\\Desktop\\coop-test-cert.pfx");
+//            ssl.setKeyStorePassword("password");
+//            ssl.setKeyStoreType("PKCS12");
+//            factory.setSsl(ssl);
+//        };
+//    }
 }
