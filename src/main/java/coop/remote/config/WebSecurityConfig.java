@@ -70,15 +70,15 @@ public class WebSecurityConfig {
         return new AuthContext();
     }
 
-//    @Bean
-//    public WebServerFactoryCustomizer<ConfigurableServletWebServerFactory> containerCustomizer() {
-//        return factory -> {
-//            Ssl ssl = new Ssl();
-//            ssl.setEnabled(true);
-//            ssl.setKeyStore("C:\\Users\\zmiller\\Desktop\\coop-test-cert.pfx");
-//            ssl.setKeyStorePassword("password");
-//            ssl.setKeyStoreType("PKCS12");
-//            factory.setSsl(ssl);
-//        };
-//    }
+    @Bean
+    public WebServerFactoryCustomizer<ConfigurableServletWebServerFactory> containerCustomizer() {
+        return factory -> {
+            Ssl ssl = new Ssl();
+            ssl.setEnabled(true);
+            ssl.setKeyStore("/home/ec2-user/apipisprout.pfx");
+            ssl.setKeyStorePassword("password");
+            ssl.setKeyStoreType("PKCS12");
+            factory.setSsl(ssl);
+        };
+    }
 }
