@@ -61,6 +61,8 @@ public class WebSecurityConfig {
         config.addAllowedMethod("*");
         config.addAllowedOrigin("http://192.168.50.233:3000");
         config.addAllowedOrigin("http://localhost:3000");
+        config.addAllowedOrigin("https://pisprout.com");
+        config.addAllowedOrigin("https://www.pisprout.com");
         source.registerCorsConfiguration("/**", config);
         return source;
     }
