@@ -14,6 +14,12 @@ public class PiMqttClient implements MqttClientConnectionEvents {
 
     private static final Duration CONNECTION_RETRY_INTERVAL = Duration.ofMinutes(3);
 
+    private final String clientEndpoint;
+    private final String clientId;
+    private final String certPath;
+    private final String privateKeyPath;
+
+
     private MqttClientConnection connection;
     private boolean isConnected = false;
 
@@ -21,10 +27,21 @@ public class PiMqttClient implements MqttClientConnectionEvents {
     private List<ShadowSubscription> subscriptions = new ArrayList<>();
 
     public PiMqttClient(String clientEndpoint, String clientId, String certPath, String privateKeyPath) {
+
+        this.clientEndpoint = clientEndpoint;
+        this.clientId = clientId;
+        this.certPath = certPath;
+        this.privateKeyPath = privateKeyPath;
+
+        createConnection();
+    }
+
+    private void createConnection() {
         try(AwsIotMqttConnectionBuilder builder = AwsIotMqttConnectionBuilder.newMtlsBuilderFromPath(certPath, privateKeyPath)
                 .withConnectionEventCallbacks(this)
                 .withClientId(clientId)
-                .withEndpoint(clientEndpoint)) {
+                .withEndpoint(clientEndpoint)
+                .withCleanSession(false)) {
             connection = builder.build();
         }
     }
@@ -45,6 +62,19 @@ public class PiMqttClient implements MqttClientConnectionEvents {
                 .exceptionally(message::onFailed);
     }
 
+    private boolean subscribe() {
+        try {
+            for (ShadowSubscription subscription : subscriptions) {
+                connection.subscribe(subscription.getTopicName(), QualityOfService.AT_LEAST_ONCE, subscription).get();
+            }
+
+            return true;
+        } catch (Exception e) {
+            System.out.println("Failed to subscribe. " + e.getMessage());
+            return false;
+        }
+    }
+
     public boolean connect() {
 
         if(isConnected) {
@@ -58,12 +88,15 @@ public class PiMqttClient implements MqttClientConnectionEvents {
         }
 
         try {
+
+            if(connection == null) {
+                return false;
+            }
+
             CompletableFuture<Boolean> connected = connection.connect();
             boolean isResumedSession = connected.get();
             if (!isResumedSession) {
-                for(ShadowSubscription subscription : subscriptions) {
-                    connection.subscribe(subscription.getTopicName(), QualityOfService.AT_LEAST_ONCE, subscription).get();
-                }
+                return subscribe();
             }
 
             return true;
@@ -85,9 +118,14 @@ public class PiMqttClient implements MqttClientConnectionEvents {
     }
 
     @Override
-    public void onConnectionResumed(boolean b) {
+    public void onConnectionResumed(boolean sessionPresent) {
         isConnected = true;
         System.out.println("Connection was resumed");
+
+        if (!sessionPresent) {
+            System.out.println("Session not present. Resubscribing to topics...");
+            subscribe();
+        }
     }
 
     @Override
@@ -99,7 +137,11 @@ public class PiMqttClient implements MqttClientConnectionEvents {
     @Override
     public void onConnectionFailure(OnConnectionFailureReturn data) {
         isConnected = false;
-        System.out.println("Connection failed");
+        System.out.println("Connection failed with code " + data.getErrorCode() + " . Recreating connection.");
+        connection.disconnect().join();
+        connection.close();
+        createConnection();
+        System.out.println("Creating connection.");
     }
 
     @Override
