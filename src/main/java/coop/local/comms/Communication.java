@@ -2,6 +2,7 @@ package coop.local.comms;
 
 import coop.local.comms.message.*;
 import coop.local.comms.serial.SerialCommunication;
+import lombok.extern.log4j.Log4j2;
 
 import java.time.Duration;
 import java.util.ArrayList;
@@ -10,6 +11,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.function.Consumer;
 
+
+@Log4j2
 public class Communication implements Runnable {
 
     private static final Duration TIMEOUT = Duration.ofSeconds(1);
@@ -154,6 +157,8 @@ public class Communication implements Runnable {
     }
 
     private void invokeListeners(String input) {
+
+        log.info("Recieved: " + input);
 
         if (MessageError.matches(input)) {
             this.listeners.getOrDefault(MessageError.class, new ArrayList<>())

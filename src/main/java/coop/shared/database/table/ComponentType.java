@@ -13,7 +13,9 @@ public enum ComponentType {
             new ConfigKey("door.close", "Door Close Time")),
     WEATHER("WEATHER", "Weather Sensor"),
     FOOD("FOOD", "Food Level Monitor", new ConfigKey("food.alert.threshold", "Alert Threshold")),
-    WATER("WATER", "Water Level Monitor", new ConfigKey("water.alert.threshold", "Alert Threshold"));
+    WATER("WATER", "Water Level Monitor", new ConfigKey("water.alert.threshold", "Alert Threshold")),
+    SCALE("Scale", "Weight Monitor"),
+    MOISTURE("Moisture", "Moisture Level Monitor");
 
     private String name;
     private String descr;
