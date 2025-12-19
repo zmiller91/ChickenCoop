@@ -1,3 +1,13 @@
+# Running
+
+## Windows
+
+1. Start the MySQL service
+2. Run the Main service in the local package using these configs:
+  ** -Dspring.profiles.active=local -Dlogging.config=classpath:log4j2-pi.properties
+
+
+
 # Premium Functionality
 
 * Update Pi remotely
