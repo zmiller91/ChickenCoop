@@ -1,5 +1,6 @@
 package coop.shared.database.repository;
 
+import coop.shared.database.table.ComponentType;
 import coop.shared.database.table.Coop;
 import coop.shared.database.table.CoopComponent;
 import coop.shared.database.table.CoopMetric;
@@ -112,6 +113,7 @@ public class MetricRepository extends AuthorizerScopedRepository<CoopMetric> {
             data.setLastUpdate(getLastUpdate(coop, data.getComponentId()));
             data.setComponentTypeDescription(component.getSerial().getComponentType().getDescription());
             data.setComponentName(component.getName());
+            data.setComponentType(component.getSerial().getComponentType());
         }
 
         return new ArrayList<>(groupedData.values());
@@ -200,6 +202,7 @@ public class MetricRepository extends AuthorizerScopedRepository<CoopMetric> {
             result.setBatteryLevel(batteryLevel);
             result.setComponentName(component.getName());
             result.setComponentTypeDescription(component.getSerial().getComponentType().getDescription());
+            result.setComponentType(component.getSerial().getComponentType());
         }
 
         return result;
@@ -280,6 +283,7 @@ public class MetricRepository extends AuthorizerScopedRepository<CoopMetric> {
         private String componentTypeDescription;
         private String componentName;
         private List<Map<String, Object>> data;
+        private ComponentType componentType;
 
         @Getter(AccessLevel.NONE)
         @Setter(AccessLevel.NONE)
