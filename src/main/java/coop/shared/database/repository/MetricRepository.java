@@ -36,7 +36,7 @@ public class MetricRepository extends AuthorizerScopedRepository<CoopMetric> {
 
     public List<MetricDataRow> findByMetricHourly(Coop coop, String metric) {
         DateTimeFormatter fromFormat = DateTimeFormatter.ofPattern("yyyyMMddHH");
-        DateTimeFormatter toFormat = DateTimeFormatter.ofPattern("MMM dd ha");
+        DateTimeFormatter toFormat = DateTimeFormatter.ISO_DATE_TIME;
 
         return findByMetric(coop, metric, "HOUR").stream().map(d -> {
             LocalDateTime zdt = LocalDateTime.parse(d.getDate(), fromFormat);
@@ -49,14 +49,14 @@ public class MetricRepository extends AuthorizerScopedRepository<CoopMetric> {
     public List<MetricDataRow> findByMetricDaily(Coop coop, String metric) {
         List<MetricDataRow> data = findByMetric(coop, metric, "DAY");
         DateTimeFormatter fromFormat = DateTimeFormatter.ofPattern("yyyyMMdd");
-        DateTimeFormatter toFormat = DateTimeFormatter.ofPattern("MMM dd");
+        DateTimeFormatter toFormat = DateTimeFormatter.ISO_DATE_TIME;
         return formatLocalDate(data, fromFormat, toFormat);
     }
 
     public List<MetricDataRow> findByMetricWeekly(Coop coop, String metric) {
 
         List<MetricDataRow> data = findByMetric(coop, metric, "WEEK");
-        DateTimeFormatter toFormat = DateTimeFormatter.ofPattern("MMM dd");
+        DateTimeFormatter toFormat = DateTimeFormatter.ISO_DATE_TIME;
         DateTimeFormatter fromFormat = new DateTimeFormatterBuilder()
                 .appendValue(WeekFields.ISO.weekBasedYear(), 4)
                 .appendValue(WeekFields.ISO.weekOfWeekBasedYear(), 2)
@@ -69,7 +69,7 @@ public class MetricRepository extends AuthorizerScopedRepository<CoopMetric> {
     public List<MetricDataRow> findByMetricMonthly(Coop coop, String metric) {
 
         List<MetricDataRow> data = findByMetric(coop, metric, "MONTH");
-        DateTimeFormatter toFormat = DateTimeFormatter.ofPattern("MMM yyyy");
+        DateTimeFormatter toFormat = DateTimeFormatter.ISO_DATE_TIME;
         DateTimeFormatter fromFormat = new DateTimeFormatterBuilder()
                 .appendValue(ChronoField.YEAR, 4)
                 .appendValue(ChronoField.MONTH_OF_YEAR, 2)

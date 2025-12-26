@@ -14,24 +14,24 @@ public enum MetricInterval {
 
     DAY("HOUR", Duration.ofDays(1), str -> {
         DateTimeFormatter fromFormat = DateTimeFormatter.ofPattern("yyyyMMddHH");
-        DateTimeFormatter toFormat = DateTimeFormatter.ofPattern("MMM dd ha");
+        DateTimeFormatter toFormat = DateTimeFormatter.ISO_DATE_TIME;
         return LocalDateTime.parse(str, fromFormat).format(toFormat);
     }),
 
     WEEK("QUARTER_DAY", Duration.ofDays(7), str -> {
         DateTimeFormatter fromFormat = DateTimeFormatter.ofPattern("yyyyMMddHH");
-        DateTimeFormatter toFormat = DateTimeFormatter.ofPattern("MMM dd ha");
+        DateTimeFormatter toFormat = DateTimeFormatter.ISO_DATE_TIME;
         return LocalDateTime.parse(str, fromFormat).format(toFormat);
     }),
 
     MONTH("DAY", Duration.ofDays(31), str -> {
         DateTimeFormatter fromFormat = DateTimeFormatter.ofPattern("yyyyMMdd");
-        DateTimeFormatter toFormat = DateTimeFormatter.ofPattern("MMM dd");
+        DateTimeFormatter toFormat = DateTimeFormatter.ISO_DATE;
         return LocalDate.parse(str, fromFormat).format(toFormat);
     }),
 
     YEAR("WEEK", Duration.ofDays(366), str -> {
-        DateTimeFormatter toFormat = DateTimeFormatter.ofPattern("MMM dd");
+        DateTimeFormatter toFormat = DateTimeFormatter.ISO_DATE;
         DateTimeFormatter fromFormat = new DateTimeFormatterBuilder()
                 .appendValue(WeekFields.ISO.weekBasedYear(), 4)
                 .appendValue(WeekFields.ISO.weekOfWeekBasedYear(), 2)
