@@ -7,6 +7,7 @@ import coop.device.ConfigKey;
 import coop.device.Device;
 import coop.device.protocol.command.Command;
 import coop.device.protocol.DownlinkFrame;
+import coop.device.protocol.parser.CommandEventParser;
 import coop.device.protocol.parser.EventParser;
 
 public class ValveActuator implements Device, Actuator {
@@ -17,7 +18,7 @@ public class ValveActuator implements Device, Actuator {
 
     @Override
     public EventParser getEventParser() {
-        return new ValveEventParser();
+        return new CommandEventParser();
     }
 
     @Override
@@ -49,13 +50,11 @@ public class ValveActuator implements Device, Actuator {
 
         try {
             String commandId = object.get("commandId").getAsString();
-            switch(commandId) {
-                case TurnOnCommand.COMMAND_ID:
-                    TurnOnCommand command = new Gson().fromJson(object, TurnOnCommand.class);
-                    return command;
-                default:
-                    return null;
+            if (commandId.equals(TurnOnCommand.COMMAND_ID)) {
+                return new Gson().fromJson(object, TurnOnCommand.class);
             }
+
+            return null;
 
         } catch (Exception e) {
             return null;

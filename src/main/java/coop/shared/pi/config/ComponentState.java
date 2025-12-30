@@ -11,4 +11,5 @@ public class ComponentState {
     private String serialNumber;
     private DeviceType deviceType;
     private Map<String, String> config;
+    private String groupId;
 }

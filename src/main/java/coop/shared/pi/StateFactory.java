@@ -62,6 +62,7 @@ public class StateFactory {
 
                 }).toList();
 
+        //TODO: Add group transforms here
 
         CoopState config = new CoopState();
         config.setCoopId(coop.getId());

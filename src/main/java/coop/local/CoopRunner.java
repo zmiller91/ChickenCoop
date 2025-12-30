@@ -10,11 +10,14 @@ import coop.device.protocol.parser.EventParser;
 import coop.local.cache.MetricCache;
 import coop.local.comms.Communication;
 import coop.local.comms.message.MessageReceived;
+import coop.local.scheduler.CommandQueue;
+import coop.local.scheduler.Scheduler;
 import coop.local.service.PiRunner;
 //import coop.shared.database.repository.*;
 //import coop.shared.database.table.*;
 import coop.local.state.LocalStateProvider;
 import coop.device.types.DeviceType;
+import coop.shared.database.table.Coop;
 import coop.shared.database.table.rule.Operator;
 import coop.shared.pi.config.ComponentState;
 import coop.shared.pi.config.CoopState;
@@ -66,10 +69,9 @@ public class CoopRunner extends PiRunner {
     private MetricCache metricCache;
 
     @Autowired
-    private CommandQueue commandQueue;
+    private Scheduler scheduler;
 
     private long lastStateRefresh = 0;
-
 
 
     @Override
@@ -77,6 +79,9 @@ public class CoopRunner extends PiRunner {
         communication.addListener(MessageReceived.class, this::onMessageReceived);
         communication.beginReading();
         provider.init();
+
+        EventListener.addListener(MetricEvent.class, this::processMetricEvent);
+        EventListener.addListener(CommandRequestEvent.class, this::processCommandRequest);
     }
 
     @Override
@@ -87,7 +92,7 @@ public class CoopRunner extends PiRunner {
             lastStateRefresh = System.currentTimeMillis();
         }
 
-        commandQueue.sendNext();
+        scheduler.invoke();
     }
 
     @Override
@@ -97,70 +102,28 @@ public class CoopRunner extends PiRunner {
 
     private void onMessageReceived(MessageReceived message) {
         System.out.println("Received: " + message.getRaw());
-
         CoopState coop = provider.getConfig();
         if(coop != null) {
-
-            UplinkFrame frame = new UplinkFrame(message.getMessage());
-            if(frame.getSerialNumber() != null) {
-
-                ComponentState component = coop
-                        .getComponents()
-                        .stream()
-                        .filter(c -> c.getSerialNumber().equals(frame.getSerialNumber()))
-                        .findFirst()
-                        .orElse(null);
-
-                if(component != null) {
-
-                    DeviceType deviceType = component.getDeviceType();
-                    EventParser parser = deviceType.getDevice().getEventParser();
-                    if(parser != null) {
-
-                        List<Event> events = parser.parse(frame);
-                        if (events != null) {
-
-                            for (Event event : events) {
-
-                                if(event instanceof MetricEvent metric) {
-                                    processMetricEvent(coop, component, metric);
-                                }
-
-                                if(event instanceof CommandRequestEvent cmdRequest) {
-                                    processCommandRequest(coop, component, cmdRequest);
-                                }
-
-                                if(event instanceof AckEvent ack) {
-                                    commandQueue.ack(ack.getMessageId());
-                                }
-                            }
-                        }
-                    }
-                }
-            }
+            EventListener.receiveMessage(coop, message);
         }
     }
 
-    private void processCommandRequest(CoopState coop, ComponentState component, CommandRequestEvent event) {
+    private void processCommandRequest(EventPayload message) {
 
+        if(!(message.getEvent() instanceof CommandRequestEvent event)) {
+            return;
+        }
 
-        //TODO: I think we are going to run into an issue where a device has several sets of commands and this implementation
-        //      is going to cause commands to be dropped. For example, consider this sequence of commands:
-        //          - OPEN_VALVE
-        //          - END
-        //          - OPEN_VALVE
-        //          - END
-        //      When the command queue runs it will send all of those, but the device will turn off its radio at the
-        //      first 'END' causing the second OPEN_VALVE to drop/not be acked. This may not be an issue for rules that
-        //      are based on sensor data, since those will just re-trigger next time, but it could cause issues with
-        //      scheduled rules.
-        //      .
-        //      We May need some callback to mark that the action was executed and if not, we re-send it.
+        CoopState coop = message.getCoop();
+        ComponentState component = message.getComponent();
 
         // Only actuators can have command sent to them
         if(!(component.getDeviceType().getDevice() instanceof Actuator device)) {
             return;
         }
+
+
+        // TODO: Check if any commands have been reserved/allocated
 
         // Find all rules that have been satisfied
         // Find all actions from those satisfied rules
@@ -175,12 +138,10 @@ public class CoopRunner extends PiRunner {
                     JsonObject actionBody = parseActionBody(action.getAction());
                     if(actionBody != null) {
                         DownlinkFrame downlink = device.createCommand(component.getSerialNumber(), actionBody);
-                        commandQueue.add(downlink);
+                        scheduler.create(component, downlink, action.getId());
                     }
                 });
 
-        // Always send an END to acknowledge completion of the request
-        commandQueue.add(new EndCommandDownlink(component.getSerialNumber()));
     }
 
     private JsonObject parseActionBody(String body) {
@@ -198,16 +159,19 @@ public class CoopRunner extends PiRunner {
         });
     }
 
-    private void processMetricEvent(CoopState coop, ComponentState component, MetricEvent event) {
+    private void processMetricEvent(EventPayload message) {
+        if(!(message.getEvent() instanceof MetricEvent event)) {
+            return;
+        }
 
         Metric metric = new Metric();
         metric.setDt(System.currentTimeMillis());
-        metric.setCoopId(coop.getCoopId());
-        metric.setComponentId(component.getComponentId());
+        metric.setCoopId(message.getCoop().getCoopId());
+        metric.setComponentId(message.getComponent().getComponentId());
         metric.setMetric(event.getMetric());
         metric.setValue(event.getValue());
 
         provider.save(metric);
-        metricCache.put(component.getComponentId(), event.getMetric(), event.getValue());
+        metricCache.put(message.getComponent().getComponentId(), event.getMetric(), event.getValue());
     }
 }
