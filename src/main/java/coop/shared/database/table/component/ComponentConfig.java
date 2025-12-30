@@ -1,5 +1,8 @@
-package coop.shared.database.table;
+package coop.shared.database.table.component;
 
+import coop.shared.database.table.AuthorizerScopedTable;
+import coop.shared.database.table.Pi;
+import coop.shared.database.table.User;
 import lombok.Getter;
 import lombok.Setter;
 
@@ -15,7 +18,7 @@ public class ComponentConfig implements AuthorizerScopedTable, Serializable {
     @Id
     @OneToOne
     @JoinColumn(name="COMPONENT_ID")
-    private CoopComponent component;
+    private Component component;
 
     @Id
     @Column(name="CONFIG_KEY")

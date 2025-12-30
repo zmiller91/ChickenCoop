@@ -1,5 +1,6 @@
 package coop.shared.database.table;
 
+import coop.shared.database.table.component.Component;
 import lombok.Getter;
 import lombok.Setter;
 import org.hibernate.annotations.GenericGenerator;
@@ -31,5 +32,5 @@ public class Coop implements AuthorizerScopedTable {
 
     @OneToMany
     @JoinColumn(name = "coop_id")
-    List<CoopComponent> components;
+    List<Component> components;
 }

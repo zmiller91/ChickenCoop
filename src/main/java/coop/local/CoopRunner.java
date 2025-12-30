@@ -1,17 +1,21 @@
 package coop.local;
 
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
+import coop.device.Actuator;
+import coop.device.protocol.*;
+import coop.local.cache.MetricCache;
 import coop.local.comms.Communication;
 import coop.local.comms.message.MessageReceived;
-import coop.local.comms.message.parsers.MessageParser;
-import coop.local.comms.message.parsers.ParsedMessage;
-import coop.local.mqtt.*;
 import coop.local.service.PiRunner;
 //import coop.shared.database.repository.*;
 //import coop.shared.database.table.*;
 import coop.local.state.LocalStateProvider;
-import coop.shared.database.table.ComponentType;
+import coop.device.DeviceType;
+import coop.shared.database.table.rule.Operator;
 import coop.shared.pi.config.ComponentState;
 import coop.shared.pi.config.CoopState;
+import coop.shared.pi.config.RuleState;
 import coop.shared.pi.metric.Metric;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
@@ -19,7 +23,6 @@ import org.springframework.transaction.annotation.EnableTransactionManagement;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Duration;
-import java.util.Arrays;
 import java.util.List;
 
 /**
@@ -56,7 +59,14 @@ public class CoopRunner extends PiRunner {
     @Autowired
     private Communication communication;
 
+    @Autowired
+    private MetricCache metricCache;
+
+    @Autowired
+    private CommandQueue commandQueue;
+
     private long lastStateRefresh = 0;
+
 
 
     @Override
@@ -73,6 +83,8 @@ public class CoopRunner extends PiRunner {
             provider.refreshState();
             lastStateRefresh = System.currentTimeMillis();
         }
+
+        commandQueue.sendNext();
     }
 
     @Override
@@ -86,39 +98,113 @@ public class CoopRunner extends PiRunner {
         CoopState coop = provider.getConfig();
         if(coop != null) {
 
-            String componentSerial = MessageParser.getComponentSerial(message);
-            if(componentSerial != null) {
+            UplinkFrame frame = new UplinkFrame(message.getMessage());
+            if(frame.getSerialNumber() != null) {
 
                 ComponentState component = coop
                         .getComponents()
                         .stream()
-                        .filter(c -> c.getSerialNumber().equals(componentSerial))
+                        .filter(c -> c.getSerialNumber().equals(frame.getSerialNumber()))
                         .findFirst()
                         .orElse(null);
 
                 if(component != null) {
 
-                    ComponentType componentType = component.getComponentType();
-                    MessageParser parser = MessageParser.forComponentType(componentType);
+                    DeviceType deviceType = component.getDeviceType();
+                    EventParser parser = deviceType.getDevice().getEventParser();
                     if(parser != null) {
 
-                        List<ParsedMessage> parsedMessages = parser.parse(message);
-                        if (parsedMessages != null) {
+                        List<Event> events = parser.parse(frame);
+                        if (events != null) {
 
-                            for (ParsedMessage parsed : parsedMessages) {
-                                Metric metric = new Metric();
-                                metric.setDt(System.currentTimeMillis());
-                                metric.setCoopId(coop.getCoopId());
-                                metric.setComponentId(component.getComponentId());
-                                metric.setMetric(parsed.getMetric());
-                                metric.setValue(parsed.getValueAsDouble());
+                            for (Event event : events) {
 
-                                provider.save(metric);
+                                if(event instanceof MetricEvent metric) {
+                                    processMetricEvent(coop, component, metric);
+                                }
+
+                                if(event instanceof CommandRequestEvent cmdRequest) {
+                                    processCommandRequest(coop, component, cmdRequest);
+                                }
+
+                                if(event instanceof AckEvent ack) {
+                                    commandQueue.ack(ack.getMessageId());
+                                }
                             }
                         }
                     }
                 }
             }
         }
+    }
+
+    private void processCommandRequest(CoopState coop, ComponentState component, CommandRequestEvent event) {
+
+
+        //TODO: I think we are going to run into an issue where a device has several sets of commands and this implementation
+        //      is going to cause commands to be dropped. For example, consider this sequence of commands:
+        //          - OPEN_VALVE
+        //          - END
+        //          - OPEN_VALVE
+        //          - END
+        //      When the command queue runs it will send all of those, but the device will turn off its radio at the
+        //      first 'END' causing the second OPEN_VALVE to drop/not be acked. This may not be an issue for rules that
+        //      are based on sensor data, since those will just re-trigger next time, but it could cause issues with
+        //      scheduled rules.
+        //      .
+        //      We May need some callback to mark that the action was executed and if not, we re-send it.
+
+        // Only actuators can have command sent to them
+        if(!(component.getDeviceType().getDevice() instanceof Actuator device)) {
+            return;
+        }
+
+        // Find all rules that have been satisfied
+        // Find all actions from those satisfied rules
+        // Filter to only actions related to the component requesting a command
+        // Create the commands
+        coop.getRules()
+                .stream()
+                .filter(this::isRuleSatisfied)
+                .flatMap(rule -> rule.getActions().stream())
+                .filter(action -> action.getComponentId().equals(component.getComponentId()))
+                .forEach(action -> {
+                    JsonObject actionBody = parseActionBody(action.getAction());
+                    if(actionBody != null) {
+                        DownlinkFrame downlink = device.createCommand(component.getSerialNumber(), actionBody);
+                        commandQueue.add(downlink);
+                    }
+                });
+
+        // Always send an END to acknowledge completion of the request
+        commandQueue.add(new EndDownlink(component.getSerialNumber()));
+    }
+
+    private JsonObject parseActionBody(String body) {
+        try {
+            return JsonParser.parseString(body).getAsJsonObject();
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    private boolean isRuleSatisfied(RuleState rule) {
+        return rule.getComponentTriggers().stream().allMatch(trigger -> {
+            Double metricValue = metricCache.get(trigger.getComponentId(), trigger.getMetric());
+            return metricValue != null && Operator.valueOf(trigger.getOperator()).evaluate(metricValue, trigger.getThreshold());
+        });
+    }
+
+    private void processMetricEvent(CoopState coop, ComponentState component, MetricEvent event) {
+
+        Metric metric = new Metric();
+        metric.setDt(System.currentTimeMillis());
+        metric.setCoopId(coop.getCoopId());
+        metric.setComponentId(component.getComponentId());
+        metric.setMetric(event.getMetric());
+        metric.setValue(event.getValue());
+
+        provider.save(metric);
+        metricCache.put(component.getComponentId(), event.getMetric(), event.getValue());
     }
 }

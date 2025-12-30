@@ -1,5 +1,9 @@
-package coop.shared.database.table;
+package coop.shared.database.table.component;
 
+import coop.shared.database.table.AuthorizerScopedTable;
+import coop.shared.database.table.Coop;
+import coop.shared.database.table.Pi;
+import coop.shared.database.table.User;
 import lombok.Getter;
 import lombok.Setter;
 import org.hibernate.annotations.GenericGenerator;
@@ -11,7 +15,7 @@ import java.util.List;
 @Setter
 @Entity
 @Table(name = "components")
-public class CoopComponent implements AuthorizerScopedTable {
+public class Component implements AuthorizerScopedTable {
 
     @Id
     @GeneratedValue(generator = "uuid")

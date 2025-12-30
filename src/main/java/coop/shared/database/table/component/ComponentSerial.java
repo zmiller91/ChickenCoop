@@ -1,5 +1,6 @@
-package coop.shared.database.table;
+package coop.shared.database.table.component;
 
+import coop.device.DeviceType;
 import lombok.Getter;
 import lombok.Setter;
 
@@ -17,9 +18,9 @@ public class ComponentSerial {
 
     @Column(name="TYPE")
     @Enumerated(EnumType.STRING)
-    private ComponentType componentType;
+    private DeviceType deviceType;
 
     @OneToOne
     @JoinColumn(name="SERIAL_NUMBER")
-    private CoopComponent component;
+    private Component component;
 }

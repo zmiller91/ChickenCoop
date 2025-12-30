@@ -9,4 +9,5 @@ public class CoopState {
     private String coopId;
     private String awsIotThingId;
     private List<ComponentState> components;
+    private List<RuleState> rules;
 }

@@ -1,7 +1,7 @@
 package coop.shared.database.repository;
 
-import coop.shared.database.table.ComponentConfig;
-import coop.shared.database.table.CoopComponent;
+import coop.shared.database.table.component.ComponentConfig;
+import coop.shared.database.table.component.Component;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.EnableTransactionManagement;
 import org.springframework.transaction.annotation.Transactional;
@@ -16,7 +16,7 @@ public class ComponentConfigRepository extends AuthorizerScopedRepository<Compon
         return ComponentConfig.class;
     }
 
-    public ComponentConfig findByKey(CoopComponent component, String key) {
+    public ComponentConfig findByKey(Component component, String key) {
         return this.query("FROM ComponentConfig WHERE key = :key and component = :component", ComponentConfig.class)
                 .setParameter("key", key)
                 .setParameter("component", component)
@@ -27,7 +27,7 @@ public class ComponentConfigRepository extends AuthorizerScopedRepository<Compon
 
     }
 
-    public ComponentConfig save(CoopComponent component, String key, String value) {
+    public ComponentConfig save(Component component, String key, String value) {
         ComponentConfig config = findByKey(component, key);
         if (config == null) {
             config = new ComponentConfig();
