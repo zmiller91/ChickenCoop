@@ -10,4 +10,6 @@ public class CoopState {
     private String awsIotThingId;
     private List<ComponentState> components;
     private List<RuleState> rules;
+    private List<GroupResourceState> groupResources;
+    private List<GlobalResourceState> globalResources;
 }
