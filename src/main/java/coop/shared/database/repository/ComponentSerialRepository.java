@@ -1,6 +1,6 @@
 package coop.shared.database.repository;
 
-import coop.shared.database.table.ComponentSerial;
+import coop.shared.database.table.component.ComponentSerial;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.EnableTransactionManagement;
 import org.springframework.transaction.annotation.Transactional;

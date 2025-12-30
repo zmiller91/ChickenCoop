@@ -1,10 +1,15 @@
 package coop.shared.api.auth;
 
+import coop.device.ConfigKey;
 import coop.shared.database.repository.ComponentConfigRepository;
 import coop.shared.database.repository.ComponentRepository;
 import coop.shared.database.repository.ComponentSerialRepository;
 import coop.shared.database.repository.CoopRepository;
 import coop.shared.database.table.*;
+import coop.shared.database.table.component.ComponentConfig;
+import coop.shared.database.table.component.ComponentSerial;
+import coop.device.DeviceType;
+import coop.shared.database.table.component.Component;
 import coop.shared.exception.NotFound;
 import coop.shared.pi.StateFactory;
 import coop.shared.pi.StateProvider;
@@ -15,8 +20,10 @@ import org.springframework.transaction.annotation.EnableTransactionManagement;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Stream;
 
 @EnableTransactionManagement
 @Transactional
@@ -60,14 +67,14 @@ public class ComponentService {
             throw new NotFound("Entity not found.");
         }
 
-        CoopComponent component = new CoopComponent();
+        Component component = new Component();
         component.setName(request.name);
         component.setCoop(coop);
         component.setSerial(serialNumber);
         componentRepository.persist(component);
 
-        ComponentType componentType = component.getSerial().getComponentType();
-        componentType.initialConfig(component).forEach(config -> configRepository.persist(config));
+        DeviceType deviceList = component.getSerial().getDeviceType();
+        initialConfig(component).forEach(config -> configRepository.persist(config));
 
         componentRepository.flush();
         configRepository.flush();
@@ -77,6 +84,16 @@ public class ComponentService {
         stateProvider.put(state);
 
         return new RegisterComponentResponse(coop.getId(), serialNumber.getSerialNumber(), component.getComponentId());
+    }
+
+    private List<ComponentConfig> initialConfig(Component component) {
+        return Stream.of(component.getSerial().getDeviceType().getDevice().getConfig()).map(c -> {
+            ComponentConfig cc = new ComponentConfig();
+            cc.setComponent(component);
+            cc.setKey(c.getKey());
+            cc.setValue("");
+            return cc;
+        }).toList();
     }
 
     @GetMapping("/{coopId}/list")
@@ -97,7 +114,7 @@ public class ComponentService {
     @GetMapping("/{componentId}")
     public GetComponentResponse get( @PathVariable("componentId") String componentId) {
 
-        CoopComponent component = componentRepository.findById(userContext.getCurrentUser(), componentId);
+        Component component = componentRepository.findById(userContext.getCurrentUser(), componentId);
         if(component == null) {
             throw new NotFound("Component not found.");
         }
@@ -108,7 +125,7 @@ public class ComponentService {
     @PostMapping("/{componentId}")
     public PostComponentResponse post(@RequestBody PostComponentRequest request) {
 
-        CoopComponent component = componentRepository.findById(userContext.getCurrentUser(), request.component.id);
+        Component component = componentRepository.findById(userContext.getCurrentUser(), request.component.id);
         if(component == null) {
             throw new NotFound("Component not found.");
         }
@@ -124,9 +141,9 @@ public class ComponentService {
         return new PostComponentResponse();
     }
 
-    private ComponentDAO componentDao(CoopComponent component) {
+    private ComponentDAO componentDao(Component component) {
 
-        Map<String, String> keyDisplayNames = component.getSerial().getComponentType().keyDisplayNames();
+        Map<String, String> keyDisplayNames = keyDisplayNames(component);
 
         List<ConfigDAO> config = component.getConfig()
                 .stream()
@@ -138,6 +155,15 @@ public class ComponentService {
                 component.getSerial().getSerialNumber(),
                 component.getName(),
                 config);
+    }
+
+    private Map<String, String> keyDisplayNames(Component component) {
+        Map<String, String> map = new HashMap<>();
+        for(ConfigKey key : component.getSerial().getDeviceType().getDevice().getConfig()) {
+            map.put(key.getKey(), key.getDisplayName());
+        }
+
+        return map;
     }
 
     public record RegisterComponentRequest(String coopId, String serialNumber, String name){}

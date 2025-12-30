@@ -1,0 +1,24 @@
+package coop.device.moisture;
+
+import coop.device.protocol.Event;
+import coop.device.protocol.EventParser;
+import coop.device.protocol.MetricEvent;
+import coop.device.protocol.UplinkFrame;
+
+import java.util.List;
+
+public class MoistureSensorParser implements EventParser {
+
+    @Override
+    public List<Event> parse(UplinkFrame frame) {
+
+        if(frame.isValid(1)) {
+            Double moisture = frame.getDouble(0);
+            if(moisture != null) {
+                return List.of(new MetricEvent(frame.getSerialNumber(), "MOISTURE_PERCENT", moisture / 100.0));
+            }
+        }
+
+        return List.of();
+    }
+}

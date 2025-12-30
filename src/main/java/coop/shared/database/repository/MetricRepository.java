@@ -1,8 +1,8 @@
 package coop.shared.database.repository;
 
-import coop.shared.database.table.ComponentType;
+import coop.device.DeviceType;
 import coop.shared.database.table.Coop;
-import coop.shared.database.table.CoopComponent;
+import coop.shared.database.table.component.Component;
 import coop.shared.database.table.CoopMetric;
 import lombok.*;
 import org.hibernate.transform.AliasToBeanResultTransformer;
@@ -11,7 +11,6 @@ import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.EnableTransactionManagement;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.time.*;
 import java.time.format.DateTimeFormatter;
@@ -108,12 +107,12 @@ public class MetricRepository extends AuthorizerScopedRepository<CoopMetric> {
         });
 
         for(ComponentData data : groupedData.values()) {
-            CoopComponent component = componentRepository.findById(coop.getPi(), data.getComponentId());
+            Component component = componentRepository.findById(coop.getPi(), data.getComponentId());
             data.setBatteryLevel(getBatteryLevel(coop, data.getComponentId()));
             data.setLastUpdate(getLastUpdate(coop, data.getComponentId()));
-            data.setComponentTypeDescription(component.getSerial().getComponentType().getDescription());
+            data.setComponentTypeDescription(component.getSerial().getDeviceType().getDevice().getDescription());
             data.setComponentName(component.getName());
-            data.setComponentType(component.getSerial().getComponentType());
+            data.setComponentType(component.getSerial().getDeviceType());
         }
 
         return new ArrayList<>(groupedData.values());
@@ -135,7 +134,7 @@ public class MetricRepository extends AuthorizerScopedRepository<CoopMetric> {
         return result.stream().map(r -> ((BigInteger) r).longValue()).findFirst().orElse(null);
     }
 
-    public Long getLastUpdate(Coop coop, CoopComponent component) {
+    public Long getLastUpdate(Coop coop, Component component) {
         return getLastUpdate(coop, component.getComponentId());
     }
 
@@ -158,11 +157,11 @@ public class MetricRepository extends AuthorizerScopedRepository<CoopMetric> {
         return result.stream().map(r -> ((Float) r).doubleValue()).findFirst().orElse(null);
     }
 
-    public Double getBatteryLevel(Coop coop, CoopComponent component) {
+    public Double getBatteryLevel(Coop coop, Component component) {
         return getBatteryLevel(coop, component.getComponentId());
     }
 
-    public ComponentData findByCoopComponent(Coop coop, CoopComponent component, MetricInterval interval) {
+    public ComponentData findByComponent(Coop coop, Component component, MetricInterval interval) {
 
         String query = String.format("""
                 SELECT
@@ -201,8 +200,8 @@ public class MetricRepository extends AuthorizerScopedRepository<CoopMetric> {
             result.setLastUpdate(lastUpdate);
             result.setBatteryLevel(batteryLevel);
             result.setComponentName(component.getName());
-            result.setComponentTypeDescription(component.getSerial().getComponentType().getDescription());
-            result.setComponentType(component.getSerial().getComponentType());
+            result.setComponentTypeDescription(component.getSerial().getDeviceType().getDevice().getDescription());
+            result.setComponentType(component.getSerial().getDeviceType());
         }
 
         return result;
@@ -283,7 +282,7 @@ public class MetricRepository extends AuthorizerScopedRepository<CoopMetric> {
         private String componentTypeDescription;
         private String componentName;
         private List<Map<String, Object>> data;
-        private ComponentType componentType;
+        private DeviceType componentType;
 
         @Getter(AccessLevel.NONE)
         @Setter(AccessLevel.NONE)

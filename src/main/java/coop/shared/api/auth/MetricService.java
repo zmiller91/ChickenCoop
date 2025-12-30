@@ -5,7 +5,7 @@ import coop.shared.database.repository.CoopRepository;
 import coop.shared.database.repository.MetricInterval;
 import coop.shared.database.repository.MetricRepository;
 import coop.shared.database.table.Coop;
-import coop.shared.database.table.CoopComponent;
+import coop.shared.database.table.component.Component;
 import coop.shared.exception.NotFound;
 import coop.shared.security.AuthContext;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -60,13 +60,13 @@ public class MetricService {
             throw new NotFound("Coop not found.");
         }
 
-        CoopComponent component = componentRepository.findById(userContext.getCurrentUser(), componentId);
+        Component component = componentRepository.findById(userContext.getCurrentUser(), componentId);
         if(component == null || !component.getCoop().getId().equals(coop.getId())) {
             throw new NotFound("Component not found.");
         }
 
         MetricInterval interval = MetricInterval.valueOf(intervalName);
-        MetricRepository.ComponentData data = metricRepository.findByCoopComponent(coop, component, interval);
+        MetricRepository.ComponentData data = metricRepository.findByComponent(coop, component, interval);
         return new GetComponentMetricResult(data);
     }
 

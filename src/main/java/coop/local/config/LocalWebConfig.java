@@ -1,7 +1,9 @@
 package coop.local.config;
 
+import coop.local.CommandQueue;
 import coop.local.PiContext;
 import coop.local.CoopRunner;
+import coop.local.cache.MetricCache;
 import coop.local.state.DatabaseStateProvider;
 import coop.local.comms.Communication;
 import coop.local.comms.serial.DevSerialCommunication;
@@ -38,6 +40,13 @@ public class LocalWebConfig implements WebServerFactoryCustomizer<ConfigurableSe
         return new PiContext(path);
     }
 
+
+    @Bean
+    public MetricCache metricCache(@Value("${cache.metric.path}") String path) {
+        return new MetricCache(path);
+    }
+
+
     @Bean
     @Qualifier("coop_id")
     public String coopId(@Value("${coop.id}") String coopId) {
@@ -68,6 +77,11 @@ public class LocalWebConfig implements WebServerFactoryCustomizer<ConfigurableSe
         }
 
         return new Communication(serial);
+    }
+
+    @Bean
+    public CommandQueue commandQueue(Communication communication) {
+        return new CommandQueue(communication);
     }
 
     /**

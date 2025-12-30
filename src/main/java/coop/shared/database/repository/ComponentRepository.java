@@ -1,7 +1,7 @@
 package coop.shared.database.repository;
 
-import coop.shared.database.table.ComponentSerial;
-import coop.shared.database.table.CoopComponent;
+import coop.shared.database.table.component.ComponentSerial;
+import coop.shared.database.table.component.Component;
 import coop.shared.database.table.Coop;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.EnableTransactionManagement;
@@ -12,25 +12,25 @@ import java.util.List;
 @Repository
 @EnableTransactionManagement
 @Transactional
-public class ComponentRepository extends AuthorizerScopedRepository<CoopComponent>  {
+public class ComponentRepository extends AuthorizerScopedRepository<Component>  {
     @Override
-    protected Class<CoopComponent> getObjClass() {
-        return CoopComponent.class;
+    protected Class<Component> getObjClass() {
+        return Component.class;
     }
 
-    public List<CoopComponent> findByCoop(Coop coop) {
-        return this.query("FROM CoopComponent WHERE coop = :coop", CoopComponent.class)
+    public List<Component> findByCoop(Coop coop) {
+        return this.query("FROM Component WHERE coop = :coop", Component.class)
                 .setParameter("coop", coop)
                 .list();
     }
 
-    public CoopComponent findBySerialNumber(Coop coop, ComponentSerial serial) {
+    public Component findBySerialNumber(Coop coop, ComponentSerial serial) {
         return this.query(
             """
-                FROM CoopComponent cc 
+                FROM Component cc 
                 WHERE coop = :coop
                 AND serial = :serial
-                """, CoopComponent.class)
+                """, Component.class)
                 .setParameter("coop", coop)
                 .setParameter("serial", serial)
                 .list()
