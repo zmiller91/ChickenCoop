@@ -1,4 +1,4 @@
-package coop.device.protocol;
+package coop.device.protocol.event;
 
 import lombok.AllArgsConstructor;
 import lombok.Getter;

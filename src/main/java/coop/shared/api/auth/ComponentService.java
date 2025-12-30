@@ -8,7 +8,7 @@ import coop.shared.database.repository.CoopRepository;
 import coop.shared.database.table.*;
 import coop.shared.database.table.component.ComponentConfig;
 import coop.shared.database.table.component.ComponentSerial;
-import coop.device.DeviceType;
+import coop.device.types.DeviceType;
 import coop.shared.database.table.component.Component;
 import coop.shared.exception.NotFound;
 import coop.shared.pi.StateFactory;

@@ -1,8 +1,8 @@
-package coop.device.scale;
+package coop.device.types.scale;
 
-import coop.device.protocol.Event;
-import coop.device.protocol.EventParser;
-import coop.device.protocol.MetricEvent;
+import coop.device.protocol.event.Event;
+import coop.device.protocol.parser.EventParser;
+import coop.device.protocol.event.MetricEvent;
 import coop.device.protocol.UplinkFrame;
 
 import java.util.List;

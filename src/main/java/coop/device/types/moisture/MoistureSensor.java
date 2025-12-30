@@ -1,25 +1,23 @@
-package coop.device.weather;
+package coop.device.types.moisture;
 
 import coop.device.ConfigKey;
 import coop.device.Device;
-import coop.device.protocol.EventParser;
+import coop.device.protocol.parser.EventParser;
 import coop.device.Sensor;
 
-public class WeatherSensor implements Sensor, Device {
-
+public class MoistureSensor implements Device, Sensor {
     @Override
     public String getDescription() {
-        return "Weather Sensor";
+        return "Moisture Level Monitor";
     }
 
     @Override
     public EventParser getEventParser() {
-        return new WeatherSensorMessageParser();
+        return new MoistureSensorParser();
     }
 
     @Override
     public ConfigKey[] getConfig() {
         return new ConfigKey[]{};
     }
-
 }

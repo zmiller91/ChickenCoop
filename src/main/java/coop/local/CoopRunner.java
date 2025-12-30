@@ -4,6 +4,9 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import coop.device.Actuator;
 import coop.device.protocol.*;
+import coop.device.protocol.command.EndCommandDownlink;
+import coop.device.protocol.event.*;
+import coop.device.protocol.parser.EventParser;
 import coop.local.cache.MetricCache;
 import coop.local.comms.Communication;
 import coop.local.comms.message.MessageReceived;
@@ -11,7 +14,7 @@ import coop.local.service.PiRunner;
 //import coop.shared.database.repository.*;
 //import coop.shared.database.table.*;
 import coop.local.state.LocalStateProvider;
-import coop.device.DeviceType;
+import coop.device.types.DeviceType;
 import coop.shared.database.table.rule.Operator;
 import coop.shared.pi.config.ComponentState;
 import coop.shared.pi.config.CoopState;
@@ -177,7 +180,7 @@ public class CoopRunner extends PiRunner {
                 });
 
         // Always send an END to acknowledge completion of the request
-        commandQueue.add(new EndDownlink(component.getSerialNumber()));
+        commandQueue.add(new EndCommandDownlink(component.getSerialNumber()));
     }
 
     private JsonObject parseActionBody(String body) {

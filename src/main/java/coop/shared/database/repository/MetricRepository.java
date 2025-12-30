@@ -1,6 +1,6 @@
 package coop.shared.database.repository;
 
-import coop.device.DeviceType;
+import coop.device.types.DeviceType;
 import coop.shared.database.table.Coop;
 import coop.shared.database.table.component.Component;
 import coop.shared.database.table.CoopMetric;

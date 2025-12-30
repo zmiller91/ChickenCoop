@@ -1,6 +1,6 @@
 package coop.device;
 
-import coop.device.protocol.EventParser;
+import coop.device.protocol.parser.EventParser;
 
 public interface Device {
     String getDescription();

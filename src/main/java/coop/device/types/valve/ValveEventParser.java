@@ -1,6 +1,10 @@
-package coop.device.valve;
+package coop.device.types.valve;
 
 import coop.device.protocol.*;
+import coop.device.protocol.event.AckEvent;
+import coop.device.protocol.event.CommandRequestEvent;
+import coop.device.protocol.event.Event;
+import coop.device.protocol.parser.EventParser;
 
 import java.util.Collections;
 import java.util.List;

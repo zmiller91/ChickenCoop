@@ -1,6 +1,6 @@
 package coop.shared.pi.config;
 
-import coop.device.DeviceType;
+import coop.device.types.DeviceType;
 import lombok.Data;
 
 import java.util.Map;
