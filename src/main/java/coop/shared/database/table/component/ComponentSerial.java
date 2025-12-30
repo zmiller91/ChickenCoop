@@ -1,6 +1,6 @@
 package coop.shared.database.table.component;
 
-import coop.device.DeviceType;
+import coop.device.types.DeviceType;
 import lombok.Getter;
 import lombok.Setter;
 

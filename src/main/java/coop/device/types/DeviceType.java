@@ -1,9 +1,10 @@
-package coop.device;
+package coop.device.types;
 
-import coop.device.moisture.MoistureSensor;
-import coop.device.scale.ScaleSensor;
-import coop.device.valve.ValveActuator;
-import coop.device.weather.WeatherSensor;
+import coop.device.Device;
+import coop.device.types.moisture.MoistureSensor;
+import coop.device.types.scale.ScaleSensor;
+import coop.device.types.valve.ValveActuator;
+import coop.device.types.weather.WeatherSensor;
 
 import java.util.stream.Stream;
 

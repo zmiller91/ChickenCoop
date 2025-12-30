@@ -1,14 +1,13 @@
-package coop.device.valve;
+package coop.device.types.valve;
 
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
 import coop.device.Actuator;
 import coop.device.ConfigKey;
 import coop.device.Device;
-import coop.device.protocol.Command;
-import coop.device.protocol.CommandRequestEvent;
+import coop.device.protocol.command.Command;
 import coop.device.protocol.DownlinkFrame;
-import coop.device.protocol.EventParser;
+import coop.device.protocol.parser.EventParser;
 
 public class ValveActuator implements Device, Actuator {
     @Override

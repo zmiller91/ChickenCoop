@@ -1,6 +1,6 @@
-package coop.device.valve;
+package coop.device.types.valve;
 
-import coop.device.protocol.Command;
+import coop.device.protocol.command.Command;
 import coop.device.protocol.DownlinkFrame;
 import lombok.Data;
 

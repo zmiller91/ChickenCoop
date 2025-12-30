@@ -1,19 +1,19 @@
-package coop.device.moisture;
+package coop.device.types.scale;
 
 import coop.device.ConfigKey;
 import coop.device.Device;
-import coop.device.protocol.EventParser;
+import coop.device.protocol.parser.EventParser;
 import coop.device.Sensor;
 
-public class MoistureSensor implements Device, Sensor {
+public class ScaleSensor implements Device, Sensor {
     @Override
     public String getDescription() {
-        return "Moisture Level Monitor";
+        return "Weight Monitor";
     }
 
     @Override
     public EventParser getEventParser() {
-        return new MoistureSensorParser();
+        return new ScaleMessageParser();
     }
 
     @Override
