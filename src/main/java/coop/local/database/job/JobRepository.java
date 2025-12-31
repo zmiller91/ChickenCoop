@@ -3,6 +3,7 @@ package coop.local.database.job;
 import coop.local.database.BaseRepository;
 import org.springframework.stereotype.Repository;
 
+import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 
@@ -14,18 +15,39 @@ public class JobRepository extends BaseRepository  {
         sessionFactory.getCurrentSession().createQuery("""
             update Job j
             set j.status = :status,
-                j.rank = :rank
+                j.rank = :rank,
+                j.statusUpdateTs = :now
             where j.id = :id
-            and j.rank < :rank
+            and j.status <> :status
+            and j.rank <= :rank
 
         """).setParameter("id", job.getId())
             .setParameter("rank", job.getStatus().rank())
             .setParameter("status", job.getStatus())
+            .setParameter("now", System.currentTimeMillis())
             .executeUpdate();
 
         sessionFactory.getCurrentSession().refresh(job);
     }
 
+    public void unreserve(Job job) {
+        sessionFactory.getCurrentSession().createQuery("""
+            update Job j
+            set j.status = :created,
+                j.rank = :createdRank,
+                j.statusUpdateTs = :now
+            where j.id = :id
+              and j.status = :reserved
+        """)
+                .setParameter("id", job.getId())
+                .setParameter("created", JobStatus.CREATED)
+                .setParameter("createdRank", JobStatus.CREATED.rank())
+                .setParameter("reserved", JobStatus.RESERVED)
+                .setParameter("now", System.currentTimeMillis())
+                .executeUpdate();
+
+        sessionFactory.getCurrentSession().refresh(job);
+    }
 
     public Job findByFrameId(String frameId) {
         return sessionFactory
@@ -84,7 +106,8 @@ public class JobRepository extends BaseRepository  {
                 where j.status in (
                     :pending,
                     :waitingForAck,
-                    :waitingForComplete
+                    :waitingForComplete,
+                    :reserved
                 )
                   and j.expireAt > :now
                 order by j.createdAt asc
@@ -92,8 +115,36 @@ public class JobRepository extends BaseRepository  {
                 .setParameter("pending", JobStatus.PENDING)
                 .setParameter("waitingForAck", JobStatus.WAITING_FOR_ACK)
                 .setParameter("waitingForComplete", JobStatus.WAITING_FOR_COMPLETE)
+                .setParameter("reserved", JobStatus.RESERVED)
                 .setParameter("now", now)
                 .list();
+    }
+
+    public List<Job> findReservedJobsOlderThan(Duration age) {
+        long cutoffMillis = System.currentTimeMillis() - age.toMillis();
+        return sessionFactory.getCurrentSession()
+                .createQuery("""
+                from Job j
+                where j.status = :status
+                  and j.statusUpdateTs < :cutoff
+                order by j.createdAt asc
+            """, Job.class)
+                .setParameter("status", JobStatus.RESERVED)
+                .setParameter("cutoff", cutoffMillis)
+                .list();
+    }
+
+    public Job findReserved(String componentId) {
+        return sessionFactory.getCurrentSession()
+                .createQuery("""
+                from Job j
+                where j.componentId = :componentId
+                  and j.status = :status
+            """, Job.class)
+                .setParameter("componentId", componentId)
+                .setParameter("status", JobStatus.RESERVED)
+                .uniqueResultOptional()
+                .orElse(null);
     }
 
     public Job findWaitingForAck() {

@@ -18,6 +18,7 @@ import coop.shared.pi.config.ComponentState;
 import org.springframework.dao.DataIntegrityViolationException;
 
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -60,6 +61,39 @@ public class Scheduler implements EventListener, Invokable {
 
     @Override
     public synchronized void invoke() {
+        expireReservations();
+        createReservations();
+        executeNextJob();
+        purgeIfNecessary();
+    }
+
+    private void expireReservations() {
+
+        //TODO: Devices have 20 minutes to check in, otherwise they go to the back of the line
+        List<Job> expiredReservations = jobRepository.findReservedJobsOlderThan(Duration.ofMinutes(20));
+        for(Job expired : expiredReservations) {
+            expired.setStatus(JobStatus.CREATED);
+            resourceManager.stopConsuming(expired);
+            jobRepository.unreserve(expired);
+
+            // Check if the change stuck, otherwise it's probably processing.
+            if(JobStatus.CREATED.equals(expired.getStatus())) {
+                buffer.add(expired);
+            }
+        }
+    }
+
+    private void createReservations() {
+        for(Job job : buffer.entries()) {
+            if(resourceManager.tryToConsume(job)) {
+                job.setStatus(JobStatus.RESERVED);
+                jobRepository.updateStatus(job);
+                buffer.remove(job);
+            }
+        }
+    }
+
+    private void executeNextJob() {
         Job job = buffer.next();
         if(job != null) {
 
@@ -74,13 +108,15 @@ public class Scheduler implements EventListener, Invokable {
 
             else if(resourceManager.tryToConsume(job)) {
                 buffer.remove();
-                job.setStatus(JobStatus.PENDING);
-                jobRepository.updateStatus(job);
-                downlinkDispatcher.add(message(job));
+                sendToDispatcher(job);
             }
         }
+    }
 
-        purgeIfNecessary();
+    private void sendToDispatcher(Job job) {
+        job.setStatus(JobStatus.PENDING);
+        jobRepository.updateStatus(job);
+        downlinkDispatcher.add(message(job));
     }
 
     @Override
@@ -95,7 +131,7 @@ public class Scheduler implements EventListener, Invokable {
         }
 
         if(payload.getEvent() instanceof RxOpenEvent event) {
-            rxOpenListener(event);
+            rxOpenListener(payload, event);
         }
     }
 
@@ -152,8 +188,15 @@ public class Scheduler implements EventListener, Invokable {
 
     }
 
-    public synchronized void rxOpenListener(RxOpenEvent event) {
+    public synchronized void rxOpenListener(EventPayload payload, RxOpenEvent event) {
+        if(payload.getComponent() == null) {
+            return;
+        }
 
+        Job reserved = jobRepository.findReserved(payload.getComponent().getComponentId());
+        if(reserved != null) {
+            sendToDispatcher(reserved);
+        }
     }
 
     public synchronized boolean create(ComponentState component, DownlinkFrame frame, String dedupeKey) {
@@ -176,9 +219,15 @@ public class Scheduler implements EventListener, Invokable {
 
             jobRepository.persist(job);
             jobRepository.flush(); // must call flush for the constraint exception to happen
-            buffer.add(job);
             if (dedupeKey != null) {
                 dedupeKeys.add(dedupeKey);
+            }
+
+            if(resourceManager.tryToConsume(job)) {
+                sendToDispatcher(job);
+            } else {
+                // TODO: Send message to device indicating it should come back later
+                buffer.add(job);
             }
 
             return true;

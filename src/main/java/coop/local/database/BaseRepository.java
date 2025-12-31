@@ -20,4 +20,8 @@ public class BaseRepository {
         sessionFactory.getCurrentSession().flush();
     }
 
+    public void refresh(Object obj) {
+        sessionFactory.getCurrentSession().refresh(obj);
+    }
+
 }

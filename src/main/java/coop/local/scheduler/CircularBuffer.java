@@ -16,6 +16,36 @@ public class CircularBuffer<T> {
         buffer.add(data);
     }
 
+    public List<T> entries() {
+        return new ArrayList<>(buffer);
+    }
+
+    public void remove(T data) {
+        int removalIdx = buffer.indexOf(data);
+        if (removalIdx < 0) {
+            return;
+        }
+
+        buffer.remove(removalIdx);
+
+        if (buffer.isEmpty()) {
+            currentIdx = -1;
+            return;
+        }
+
+        // If we removed an element at or before the cursor, shift cursor left by 1
+        if (removalIdx <= currentIdx) {
+            currentIdx--;
+        }
+
+        // Keep cursor in range [0, size-1]
+        if (currentIdx < 0) {
+            currentIdx = 0;
+        } else if (currentIdx >= buffer.size()) {
+            currentIdx = 0;
+        }
+    }
+
     public T remove() {
         if(buffer.isEmpty()) {
             return null;
