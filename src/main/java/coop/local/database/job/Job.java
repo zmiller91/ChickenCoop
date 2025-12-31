@@ -5,6 +5,7 @@ import lombok.Getter;
 import lombok.Setter;
 
 import javax.persistence.*;
+import java.time.Instant;
 
 @Getter
 @Setter
@@ -35,9 +36,17 @@ public class Job {
     @Column(name="expire_at")
     private long expireAt;
 
+    @Column(name="status_update_ts")
+    private long statusUpdateTs;
+
     @OneToOne(cascade = CascadeType.ALL, orphanRemoval = true, optional = false)
     @JoinColumn(name="downlink_id", nullable = false, unique = true)
     private Downlink downlink;
+
+    @PrePersist
+    void prePersist() {
+        if (statusUpdateTs == 0) statusUpdateTs = System.currentTimeMillis();
+    }
 
     public boolean isExpired() {
         return System.currentTimeMillis() > getExpireAt();
