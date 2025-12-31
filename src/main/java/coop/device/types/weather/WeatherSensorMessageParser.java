@@ -19,8 +19,8 @@ public class WeatherSensorMessageParser implements EventParser {
             return null;
         }
 
-        Double temperature = frame.getDouble(0);
-        Double humidity = frame.getDouble(1);
+        Double temperature = frame.getDoubleAt(0);
+        Double humidity = frame.getDoubleAt(1);
 
         List<Event> events = new ArrayList<>();
         if(temperature != null) {

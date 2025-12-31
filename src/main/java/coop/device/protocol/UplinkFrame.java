@@ -38,9 +38,17 @@ public class UplinkFrame {
         return payload[idx];
     }
 
-    public Double getDouble(int idx) {
+    public Double getDoubleAt(int idx) {
         if(NumberUtils.isParsable(getStringAt(idx))) {
             return Double.parseDouble(getStringAt(idx));
+        }
+
+        return null;
+    }
+
+    public Long getLongAt(int idx) {
+        if(NumberUtils.isParsable(getStringAt(idx))) {
+            return Long.parseLong(getStringAt(idx));
         }
 
         return null;

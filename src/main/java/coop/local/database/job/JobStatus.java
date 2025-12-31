@@ -1,4 +1,4 @@
-package coop.local.database;
+package coop.local.database.job;
 
 public enum JobStatus {
     CREATED(1000),

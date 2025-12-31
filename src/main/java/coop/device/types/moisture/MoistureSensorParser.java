@@ -13,7 +13,7 @@ public class MoistureSensorParser implements EventParser {
     public List<Event> parse(UplinkFrame frame) {
 
         if(frame.isValid(1)) {
-            Double moisture = frame.getDouble(0);
+            Double moisture = frame.getDoubleAt(0);
             if(moisture != null) {
                 return List.of(new MetricEvent(frame.getSerialNumber(), "MOISTURE_PERCENT", moisture / 100.0));
             }

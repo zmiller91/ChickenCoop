@@ -1,83 +1,61 @@
 package coop.local.scheduler;
 
 import coop.device.protocol.event.AckEvent;
-import coop.local.EventListener;
+import coop.device.protocol.event.Event;
+import coop.local.Invokable;
+import coop.local.listener.EventListener;
 import coop.local.EventPayload;
 import coop.local.comms.Communication;
 import coop.local.comms.message.MessageSent;
-import coop.local.database.Job;
-import coop.local.database.JobRepository;
-import coop.local.database.JobStatus;
+import lombok.extern.log4j.Log4j2;
 
 import java.time.Duration;
-import java.util.LinkedList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Queue;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.function.Consumer;
 
 /**
  * This class manages the commands that are sent to devices. This class will only send one command at a time, only
  * moving onto the next one if the in-flight message has been acked.
  */
-public class CommandQueue {
+@Log4j2
+public class DownlinkDispatcher implements EventListener, Invokable {
 
     private static final Duration INFLIGHT_EXPIRY = Duration.ofMinutes(1);
-    private static final int RETRIES = 3;
+    private static final int MAX_TX_ATTEMPTS = 3;
+
+    //TODO: This is hardcoded. Probably shouldn't be, but it is.
+    private static final int DEVICE_ADDR = 32;
 
     private QueueEntry inFlight = null;
-    private final Queue<QueueEntry> queue = new LinkedList<>();
+    private final Queue<QueueEntry> queue = new ConcurrentLinkedQueue<>();
     private final Communication communication;
-    private final JobRepository jobRepository;
 
-    private Consumer<Job> successCallback;
-    private Consumer<Job> failedCallback;
-
-    public CommandQueue(Communication communication,
-                        JobRepository jobRepository,
-                        Consumer<Job> successCallback,
-                        Consumer<Job> failedCallback) {
-
+    public DownlinkDispatcher(Communication communication) {
         this.communication = communication;
-        this.jobRepository = jobRepository;
-        this.successCallback = successCallback;
-        this.failedCallback = failedCallback;
-        EventListener.addListener(AckEvent.class, this::ack);
-        hydrate();
     }
 
-    /**
-     * In case of shutdown hydrate the queue
-     */
-    private void hydrate() {
-        List<Job> jobs = jobRepository.findPendingJobs();
-        for(Job job : jobs) {
-            queue.add(new QueueEntry(job));
-        }
-
-        Job job = jobRepository.findWaitingForAck();
-        if(job != null) {
-            inFlight = new QueueEntry(job);
-            inFlight.markSuccessfulTx();
-        }
+    @Override
+    public List<Class<? extends Event>> listenForClasses() {
+        return Collections.singletonList(AckEvent.class);
     }
 
-    public void add(Job job){
-        queue.add(new QueueEntry(job));
-        job.setStatus(JobStatus.PENDING);
-        jobRepository.updateStatus(job);
-    }
-
-    public void ack(EventPayload payload) {
+    @Override
+    public void receive(EventPayload payload) {
         if(!(payload.getEvent() instanceof AckEvent event)) {
             return;
         }
 
-        if(inFlight != null && inFlight.job.getFrameId().equals(event.getMessageId())) {
-            inFlight.job.setStatus(JobStatus.WAITING_FOR_COMPLETE);
-            jobRepository.updateStatus(inFlight.job);
-            successCallback.accept(inFlight.job);
+        if(inFlight != null && inFlight.getMessage().getDownlink().getFrameId().equals(event.getFrameId())) {
+            callback(inFlight.getMessage(), inFlight.getMessage().getOnAckSuccess());
             inFlight = null;
         }
+    }
+
+    public void add(OutboundMessage message){
+        queue.add(new QueueEntry(message));
     }
 
     private QueueEntry getMessageToProcess() {
@@ -89,16 +67,17 @@ public class CommandQueue {
         // Otherwise check if the inFlight has succeeded, if it has then check to see if it has timed out waiting
         // for an ack. If it has, then fail the job and return the next message in the queue.
         if(inFlight.txSucceeded() && inFlight.hasFlightExpired()) {
-            failJob(inFlight.job);
+            callback(inFlight.getMessage(), inFlight.getMessage().getOnAckFailure());
             inFlight = null;
-            return null;
+            return queue.poll();
         }
 
         // Otherwise continue to process the currently inflight message
         return inFlight;
     }
 
-    public void sendNext() {
+    @Override
+    public void invoke() {
 
         // Get the entry that is to be processed. Either the current one if it hasn't completed or the next in line.
         inFlight = getMessageToProcess();
@@ -108,38 +87,45 @@ public class CommandQueue {
 
         if(!inFlight.txSucceeded()) {
             inFlight.addAttempt();
-            MessageSent sent = communication.write(32, inFlight.job.getCommand());
+            MessageSent sent = communication.write(DEVICE_ADDR, inFlight.getMessage().getDownlink().getFrame());
 
             // If the message was successfully transmitted, then stick around for the ack otherwise move on.
             if (sent.isSuccess()) {
                 inFlight.markSuccessfulTx();
-                inFlight.job.setStatus(JobStatus.WAITING_FOR_ACK);
-                jobRepository.updateStatus(inFlight.job);
+                callback(inFlight.getMessage(), inFlight.getMessage().getOnTxSuccess());
 
             // Don't keep retrying. Give it a few tries and then move on.
-            } else if (inFlight.hasExceededRetries()) {
-                failJob(inFlight.job);
+            } else if (inFlight.hasExceededMaxAttempts()) {
+                callback(inFlight.getMessage(), inFlight.getMessage().getOnTxFailure());
                 inFlight = null;
             }
         }
     }
 
-    private void failJob(Job job) {
-        job.setStatus(JobStatus.FAILED);
-        jobRepository.updateStatus(job);
-        failedCallback.accept(job);
+    private void callback(OutboundMessage message, Consumer<OutboundMessage> cbck) {
+        if (cbck != null) {
+            try {
+                cbck.accept(message);
+            } catch (Exception e){
+                log.error("Failed to call callback for message: {}", message.getDownlink().getFrameId(), e);
+            }
+        }
     }
 
     private static class QueueEntry {
 
         private long inFlightTime = Long.MAX_VALUE;
-        private final Job job;
+        private final OutboundMessage message;
         private int attempts;
         private boolean txSucceeded = false;
 
-        private QueueEntry(Job job) {
-            this.job = job;
+        private QueueEntry(OutboundMessage message) {
+            this.message = message;
             this.attempts = 0;
+        }
+
+        public OutboundMessage getMessage() {
+            return message;
         }
 
         private void markSuccessfulTx() {
@@ -155,8 +141,8 @@ public class CommandQueue {
             this.attempts += 1;
         }
 
-        private boolean hasExceededRetries() {
-            return attempts >= RETRIES;
+        private boolean hasExceededMaxAttempts() {
+            return attempts >= MAX_TX_ATTEMPTS;
         }
 
         private boolean hasFlightExpired() {

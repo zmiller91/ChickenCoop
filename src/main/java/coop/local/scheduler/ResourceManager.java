@@ -1,6 +1,6 @@
 package coop.local.scheduler;
 
-import coop.local.database.Job;
+import coop.local.database.job.Job;
 import coop.local.state.LocalStateProvider;
 import coop.shared.pi.config.ComponentState;
 import coop.shared.pi.config.CoopState;
@@ -114,9 +114,9 @@ public class ResourceManager {
         return false;
     }
 
-    void forceConsumption(Job job) {
+    synchronized void forceConsumption(Job job) {
         ComponentState component = componentForJob(job);
-        if (component != null) consume(component);;
+        if (component != null) consume(component);
     }
 
     synchronized public void stopConsuming(Job job) {

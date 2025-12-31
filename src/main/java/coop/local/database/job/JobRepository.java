@@ -1,21 +1,14 @@
-package coop.local.database;
+package coop.local.database.job;
 
-import org.hibernate.SessionFactory;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Qualifier;
+import coop.local.database.BaseRepository;
 import org.springframework.stereotype.Repository;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
 import java.util.List;
 
 @Repository
-@Transactional(transactionManager = "piTransactionManager")
-public class JobRepository {
+public class JobRepository extends BaseRepository  {
 
-    @Autowired
-    @Qualifier("piSessionFactory")
-    private  SessionFactory sessionFactory;
 
     public void updateStatus(Job job) {
         sessionFactory.getCurrentSession().createQuery("""
@@ -33,16 +26,15 @@ public class JobRepository {
         sessionFactory.getCurrentSession().refresh(job);
     }
 
-    public void persist(Job job) {
-        sessionFactory.getCurrentSession().persist(job);
-    }
 
     public Job findByFrameId(String frameId) {
         return sessionFactory
                 .getCurrentSession()
                 .createQuery("""
+            select j
             from Job j
-            where j.frameId = :frameId
+            join j.downlink dl
+            where dl.frameId = :frameId
         """, Job.class)
                 .setParameter("frameId", frameId)
                 .uniqueResultOptional()
@@ -128,9 +120,4 @@ public class JobRepository {
                 .setParameter("cutoff", cutoffMillis)
                 .executeUpdate();
     }
-
-    public void flush() {
-        sessionFactory.getCurrentSession().flush();
-    }
-
 }

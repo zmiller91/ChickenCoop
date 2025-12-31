@@ -13,7 +13,7 @@ public class ScaleMessageParser implements EventParser {
     public List<Event> parse(UplinkFrame frame) {
 
         if(frame.isValid(1)) {
-            Double weight = frame.getDouble(0);
+            Double weight = frame.getDoubleAt(0);
             if(weight != null) {
                 return List.of(new MetricEvent(frame.getSerialNumber(), "WEIGHT", weight));
             }

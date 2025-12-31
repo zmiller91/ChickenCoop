@@ -1,10 +1,8 @@
 package coop.local.config;
 
-import coop.local.database.JobRepository;
-import coop.local.scheduler.CommandQueue;
+import coop.local.database.job.JobRepository;
 import coop.local.PiContext;
 import coop.local.CoopRunner;
-import coop.local.cache.MetricCache;
 import coop.local.scheduler.Scheduler;
 import coop.local.state.DatabaseStateProvider;
 import coop.local.comms.Communication;
@@ -14,7 +12,6 @@ import coop.local.comms.serial.SerialCommunication;
 import coop.local.mqtt.PiMqttClient;
 import coop.local.state.LocalStateProvider;
 import coop.shared.pi.StateProvider;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.CommandLineRunner;
@@ -27,8 +24,6 @@ import org.springframework.core.env.Environment;
 import org.springframework.core.task.SimpleAsyncTaskExecutor;
 import org.springframework.core.task.TaskExecutor;
 
-import java.sql.Connection;
-import java.sql.DriverManager;
 import java.util.Arrays;
 
 @Configuration
@@ -44,13 +39,6 @@ public class LocalWebConfig implements WebServerFactoryCustomizer<ConfigurableSe
     public PiContext context(@Value("${context.path}") String path) {
         return new PiContext(path);
     }
-
-
-    @Bean
-    public MetricCache metricCache(@Value("${cache.metric.path}") String path) {
-        return new MetricCache(path);
-    }
-
 
     @Bean
     @Qualifier("coop_id")
@@ -82,11 +70,6 @@ public class LocalWebConfig implements WebServerFactoryCustomizer<ConfigurableSe
         }
 
         return new Communication(serial);
-    }
-
-    @Bean
-    public Scheduler scheduler(LocalStateProvider stateProvider, Communication communication, JobRepository jobRepository) {
-        return new Scheduler(stateProvider, communication, jobRepository);
     }
 
     /**
