@@ -1,5 +1,6 @@
-package coop.local.database;
+package coop.local.database.job;
 
+import coop.local.database.downlink.Downlink;
 import lombok.Getter;
 import lombok.Setter;
 
@@ -15,9 +16,6 @@ public class Job {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name="frame_id")
-    private String frameId;
-
     @Column(name="dedupe_key")
     private String dedupeKey;
 
@@ -28,9 +26,6 @@ public class Job {
     @Enumerated(EnumType.STRING)
     private JobStatus status;
 
-    @Column(name="command")
-    private String command;
-
     @Column(name="created_at")
     private long createdAt;
 
@@ -39,6 +34,10 @@ public class Job {
 
     @Column(name="expire_at")
     private long expireAt;
+
+    @OneToOne(cascade = CascadeType.ALL, orphanRemoval = true, optional = false)
+    @JoinColumn(name="downlink_id", nullable = false, unique = true)
+    private Downlink downlink;
 
     public boolean isExpired() {
         return System.currentTimeMillis() > getExpireAt();

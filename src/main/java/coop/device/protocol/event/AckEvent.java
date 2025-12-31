@@ -9,12 +9,12 @@ public class AckEvent implements Event {
     public static final String TAG = "ACK";
 
     private String serialNumber;
-    private String messageId;
+    private String frameId;
 
     public static AckEvent from(UplinkFrame frame) {
         AckEvent ack = new AckEvent();
         ack.setSerialNumber(frame.getSerialNumber());
-        ack.setMessageId(frame.getStringAt(1));
+        ack.setFrameId(frame.getStringAt(1));
         return ack;
     }
 

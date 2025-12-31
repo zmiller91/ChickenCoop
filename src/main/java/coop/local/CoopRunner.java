@@ -1,34 +1,25 @@
 package coop.local;
 
-import com.google.gson.JsonObject;
-import com.google.gson.JsonParser;
-import coop.device.Actuator;
 import coop.device.protocol.*;
-import coop.device.protocol.command.EndCommandDownlink;
 import coop.device.protocol.event.*;
-import coop.device.protocol.parser.EventParser;
-import coop.local.cache.MetricCache;
 import coop.local.comms.Communication;
 import coop.local.comms.message.MessageReceived;
-import coop.local.scheduler.CommandQueue;
+import coop.local.database.downlink.DownlinkRepository;
+import coop.local.database.job.JobRepository;
+import coop.local.database.metric.MetricCacheRepository;
+import coop.local.listener.EventProcessor;
+import coop.local.scheduler.DownlinkDispatcher;
 import coop.local.scheduler.Scheduler;
 import coop.local.service.PiRunner;
-//import coop.shared.database.repository.*;
-//import coop.shared.database.table.*;
 import coop.local.state.LocalStateProvider;
-import coop.device.types.DeviceType;
-import coop.shared.database.table.Coop;
-import coop.shared.database.table.rule.Operator;
-import coop.shared.pi.config.ComponentState;
 import coop.shared.pi.config.CoopState;
-import coop.shared.pi.config.RuleState;
-import coop.shared.pi.metric.Metric;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.EnableTransactionManagement;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -55,8 +46,6 @@ import java.util.List;
  * credit: https://forums.raspberrypi.com/viewtopic.php?t=213133#:~:text=Enabling%20the%20serial%20port%20is,question%20about%20serial%20hardware%20port.
  */
 @Component
-@Transactional
-@EnableTransactionManagement
 public class CoopRunner extends PiRunner {
 
     @Autowired
@@ -66,22 +55,37 @@ public class CoopRunner extends PiRunner {
     private Communication communication;
 
     @Autowired
-    private MetricCache metricCache;
+    private JobRepository jobRepository;
 
     @Autowired
-    private Scheduler scheduler;
+    private MetricCacheRepository metricCache;
+
+    @Autowired
+    private DownlinkRepository downlinkRepository;
 
     private long lastStateRefresh = 0;
-
+    private final List<Invokable> invokables = new ArrayList<>();
 
     @Override
     protected void init() {
+
         communication.addListener(MessageReceived.class, this::onMessageReceived);
         communication.beginReading();
         provider.init();
 
-        EventListener.addListener(MetricEvent.class, this::processMetricEvent);
-        EventListener.addListener(CommandRequestEvent.class, this::processCommandRequest);
+        DownlinkDispatcher downlinkDispatcher = new DownlinkDispatcher(communication);
+        Scheduler scheduler = new Scheduler(provider, jobRepository, downlinkDispatcher, downlinkRepository);
+        MetricProcessor metricProcessor = new MetricProcessor(metricCache, provider);
+        RuleProcessor ruleProcessor = new RuleProcessor(metricCache, scheduler);
+
+        EventProcessor.addListeners(
+                downlinkDispatcher,
+                scheduler,
+                metricProcessor,
+                ruleProcessor);
+
+        invokables.add(downlinkDispatcher);
+        invokables.add(scheduler);
     }
 
     @Override
@@ -92,7 +96,7 @@ public class CoopRunner extends PiRunner {
             lastStateRefresh = System.currentTimeMillis();
         }
 
-        scheduler.invoke();
+        invokables.forEach(Invokable::invoke);
     }
 
     @Override
@@ -104,74 +108,7 @@ public class CoopRunner extends PiRunner {
         System.out.println("Received: " + message.getRaw());
         CoopState coop = provider.getConfig();
         if(coop != null) {
-            EventListener.receiveMessage(coop, message);
+            EventProcessor.receiveMessage(coop, message);
         }
-    }
-
-    private void processCommandRequest(EventPayload message) {
-
-        if(!(message.getEvent() instanceof CommandRequestEvent event)) {
-            return;
-        }
-
-        CoopState coop = message.getCoop();
-        ComponentState component = message.getComponent();
-
-        // Only actuators can have command sent to them
-        if(!(component.getDeviceType().getDevice() instanceof Actuator device)) {
-            return;
-        }
-
-
-        // TODO: Check if any commands have been reserved/allocated
-
-        // Find all rules that have been satisfied
-        // Find all actions from those satisfied rules
-        // Filter to only actions related to the component requesting a command
-        // Create the commands
-        coop.getRules()
-                .stream()
-                .filter(this::isRuleSatisfied)
-                .flatMap(rule -> rule.getActions().stream())
-                .filter(action -> action.getComponentId().equals(component.getComponentId()))
-                .forEach(action -> {
-                    JsonObject actionBody = parseActionBody(action.getAction());
-                    if(actionBody != null) {
-                        DownlinkFrame downlink = device.createCommand(component.getSerialNumber(), actionBody);
-                        scheduler.create(component, downlink, action.getId());
-                    }
-                });
-
-    }
-
-    private JsonObject parseActionBody(String body) {
-        try {
-            return JsonParser.parseString(body).getAsJsonObject();
-        } catch (Exception e) {
-            return null;
-        }
-    }
-
-    private boolean isRuleSatisfied(RuleState rule) {
-        return rule.getComponentTriggers().stream().allMatch(trigger -> {
-            Double metricValue = metricCache.get(trigger.getComponentId(), trigger.getMetric());
-            return metricValue != null && Operator.valueOf(trigger.getOperator()).evaluate(metricValue, trigger.getThreshold());
-        });
-    }
-
-    private void processMetricEvent(EventPayload message) {
-        if(!(message.getEvent() instanceof MetricEvent event)) {
-            return;
-        }
-
-        Metric metric = new Metric();
-        metric.setDt(System.currentTimeMillis());
-        metric.setCoopId(message.getCoop().getCoopId());
-        metric.setComponentId(message.getComponent().getComponentId());
-        metric.setMetric(event.getMetric());
-        metric.setValue(event.getValue());
-
-        provider.save(metric);
-        metricCache.put(message.getComponent().getComponentId(), event.getMetric(), event.getValue());
     }
 }
