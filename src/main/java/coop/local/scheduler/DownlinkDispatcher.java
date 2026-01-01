@@ -17,7 +17,7 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.function.Consumer;
 
 /**
- * This class manages the commands that are sent to devices. This class will only send one command at a time, only
+ * This class manages the commands that are sent to devices. This class will only send one actionKey at a time, only
  * moving onto the next one if the in-flight message has been acked.
  */
 @Log4j2
@@ -93,6 +93,9 @@ public class DownlinkDispatcher implements EventListener, Invokable {
             if (sent.isSuccess()) {
                 inFlight.markSuccessfulTx();
                 callback(inFlight.getMessage(), inFlight.getMessage().getOnTxSuccess());
+                if(!inFlight.message.getDownlink().isRequiresAck()) {
+                    callback(inFlight.getMessage(), inFlight.getMessage().getOnAckIgnored());
+                }
 
             // Don't keep retrying. Give it a few tries and then move on.
             } else if (inFlight.hasExceededMaxAttempts()) {

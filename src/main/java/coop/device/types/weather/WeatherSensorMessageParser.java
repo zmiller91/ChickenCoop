@@ -8,7 +8,8 @@ import coop.device.protocol.UplinkFrame;
 import java.util.ArrayList;
 import java.util.List;
 
-import static org.apache.commons.lang3.math.NumberUtils.toDouble;
+import static coop.device.types.weather.WeatherSensorSignals.HUMIDITY;
+import static coop.device.types.weather.WeatherSensorSignals.TEMPERATURE;
 
 public class WeatherSensorMessageParser implements EventParser {
 
@@ -24,11 +25,11 @@ public class WeatherSensorMessageParser implements EventParser {
 
         List<Event> events = new ArrayList<>();
         if(temperature != null) {
-            events.add(new MetricEvent(frame.getSerialNumber(), "TEMPERATURE", temperature / 100.0));
+            events.add(new MetricEvent(frame.getSerialNumber(), TEMPERATURE.getSignal().getKey(), temperature / 100.0));
         }
 
         if(humidity != null) {
-            events.add(new MetricEvent(frame.getSerialNumber(), "HUMIDITY", humidity / 1024));
+            events.add(new MetricEvent(frame.getSerialNumber(), HUMIDITY.getSignal().getKey(), humidity / 1024));
         }
 
         return events;

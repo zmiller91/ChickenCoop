@@ -1,11 +1,14 @@
 package coop.device.types.weather;
 
-import coop.device.ConfigKey;
-import coop.device.Device;
+import coop.device.*;
 import coop.device.protocol.parser.EventParser;
-import coop.device.Sensor;
 
-public class WeatherSensor implements Sensor, Device {
+import java.util.List;
+
+import static coop.device.types.weather.WeatherSensorSignals.HUMIDITY;
+import static coop.device.types.weather.WeatherSensorSignals.TEMPERATURE;
+
+public class WeatherSensor implements Sensor, Device, RuleSource {
 
     @Override
     public String getDescription() {
@@ -22,4 +25,8 @@ public class WeatherSensor implements Sensor, Device {
         return new ConfigKey[]{};
     }
 
+    @Override
+    public List<RuleSignal> getRuleMetrics() {
+        return List.of(TEMPERATURE.getSignal(), HUMIDITY.getSignal());
+    }
 }

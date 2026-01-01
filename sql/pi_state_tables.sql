@@ -7,9 +7,9 @@ CREATE TABLE IF NOT EXISTS downlink (
     serial_number VARCHAR(64) NOT NULL,
     frame TEXT,
     requires_ack BOOLEAN NOT NULL,
-    created_at TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
-    sent_at TIMESTAMP(6) NULL,
-    ack_at TIMESTAMP(6) NULL,
+    created_at BIGINT NOT NULL,
+    sent_at BIGINT NULL,
+    ack_at BIGINT NULL,
 
     PRIMARY KEY (id),
 
@@ -29,6 +29,7 @@ CREATE TABLE IF NOT EXISTS jobs (
     created_at BIGINT NOT NULL,
     expire_at BIGINT NOT NULL,
     downlink_id BIGINT NOT NULL,
+    status_update_ts BIGINT NOT NULL,
 
     PRIMARY KEY (id),
 
@@ -53,11 +54,11 @@ CREATE TABLE IF NOT EXISTS downlink_delivery (
     id BIGINT NOT NULL AUTO_INCREMENT,
     downlink_id BIGINT NOT NULL,
     status_en VARCHAR(32) NOT NULL,
-    enqueued_at TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+    enqueued_at BIGINT NOT NULL,
     attempts INT NOT NULL DEFAULT 0,
-    last_attempt_at TIMESTAMP(6) NULL,
-    in_flight_since TIMESTAMP(6) NULL,
-    expire_at TIMESTAMP(6) NULL,
+    last_attempt_at BIGINT NULL,
+    in_flight_since BIGINT NULL,
+    expire_at BIGINT NULL,
 
     PRIMARY KEY (id),
 
@@ -89,7 +90,3 @@ CREATE TABLE IF NOT EXISTS metric_cache (
     KEY idx_metric_cache_updated_at (updated_at_ms),
     KEY idx_metric_cache_comp_metric_updated (component_id, metric, updated_at_ms)
 );
-
-select * from downlink;
-
-select * from jobs;

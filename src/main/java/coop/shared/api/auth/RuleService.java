@@ -1,9 +1,10 @@
 package coop.shared.api.auth;
 
-import com.google.gson.JsonObject;
 import com.google.gson.JsonParseException;
-import com.google.gson.JsonParser;
+import coop.device.Action;
 import coop.device.Actuator;
+import coop.device.RuleSignal;
+import coop.device.RuleSource;
 import coop.shared.database.repository.ComponentRepository;
 import coop.shared.database.repository.CoopRepository;
 import coop.shared.database.repository.RuleRepository;
@@ -25,6 +26,8 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 @EnableTransactionManagement
 @Transactional
@@ -49,6 +52,53 @@ public class RuleService {
 
     @Autowired
     private StateFactory stateFactory;
+
+    @GetMapping("{coopId}/rulesources/list")
+    public ListRuleSourcesResponse listRuleSources(@PathVariable("coopId") String coopId) {
+        Coop coop = coopRepository.findById(userContext.getCurrentUser(), coopId);
+        if (coop == null) {
+            throw new NotFound("Coop not found.");
+        }
+
+        List<Component> sources = componentRepository.findByCoop(coop)
+                .stream()
+                .filter(c -> c.getSerial().getDeviceType().getDevice() instanceof RuleSource)
+                .toList();
+
+
+        Map<String, SourceDTO> sourceTypes = sources.stream()
+                .map(s -> s.getSerial().getDeviceType())
+                .distinct()
+                .collect(Collectors.toMap(Enum::name, dt -> toDTO((RuleSource) dt.getDevice())));
+
+        return new ListRuleSourcesResponse(
+                sources.stream().map(RuleService::toDTO).toList(),
+                sourceTypes
+        );
+    }
+
+    @GetMapping("{coopId}/actuators/list")
+    public ListActuatorsResponse ListActuators(@PathVariable("coopId") String coopId) {
+        Coop coop = coopRepository.findById(userContext.getCurrentUser(), coopId);
+        if (coop == null) {
+            throw new NotFound("Coop not found.");
+        }
+
+        List<Component> actuators = componentRepository.findByCoop(coop)
+                .stream()
+                .filter(c -> c.getSerial().getDeviceType().getDevice() instanceof Actuator)
+                .toList();
+
+        Map<String, ActuatorDTO> actionMap = actuators.stream()
+                .map(a -> a.getSerial().getDeviceType())
+                .distinct()
+                .collect(Collectors.toMap(Enum::name, dt -> toDTO((Actuator) dt.getDevice())));
+
+        return new ListActuatorsResponse(
+                actuators.stream().map(RuleService::toDTO).toList(),
+                actionMap
+        );
+    }
 
     @PostMapping("/create")
     public CreateRuleResponse create(@RequestBody CreateRuleRequest request) {
@@ -78,7 +128,7 @@ public class RuleService {
             trigger.setComponent(component);
             trigger.setOperator(Operator.valueOf(dto.operator));
             trigger.setThreshold(dto.threshold);
-            trigger.setMetric(dto.metric);
+            trigger.setMetric(dto.signal);
             trigger.setRule(rule);
             return trigger;
 
@@ -87,10 +137,17 @@ public class RuleService {
         List<RuleAction> actions = request.rule.actions.stream().map(dto -> {
 
             Component component = componentRepository.findById(userContext.getCurrentUser(), dto.component.id);
+
             RuleAction action = new RuleAction();
             action.setComponent(component);
-            action.setAction(dto.action);
+            action.setActionKey(dto.actionKey);
             action.setRule(rule);
+            action.setParams(dto.params
+                    .entrySet()
+                    .stream()
+                    .map(p -> new RuleActionParam(action, p.getKey(), p.getValue()))
+                    .collect(Collectors.toSet()));
+
             return action;
 
         }).toList();
@@ -131,14 +188,14 @@ public class RuleService {
                 throw new BadRequest("Only actuator components can be used in actions.");
             }
 
-            if(action.action == null || action.action.isEmpty()) {
-                throw new BadRequest("Empty action body.");
+            if(action.params == null || action.params.isEmpty()) {
+                throw new BadRequest("Empty params body.");
             }
 
             try {
-                JsonObject body = JsonParser.parseString(action.action()).getAsJsonObject();
-                if(!((Actuator) component.getSerial().getDeviceType().getDevice()).validateCommand(body)) {
-                    throw new BadRequest("Invalid action body.");
+
+                if(!((Actuator) component.getSerial().getDeviceType().getDevice()).validateCommand(action.actionKey(), action.params())) {
+                    throw new BadRequest("Invalid params body.");
                 }
             } catch (JsonParseException | IllegalStateException e) {
                 throw new BadRequest("Action body is not valid json.");
@@ -210,7 +267,8 @@ public class RuleService {
         return new RuleActionDTO(
                 action.getId(),
                 toDTO(action.getComponent()),
-                action.getAction()
+                action.getActionKey(),
+                action.getParamsMap()
         );
     }
 
@@ -221,14 +279,43 @@ public class RuleService {
                 component.getSerial().getDeviceType().name());
     }
 
+    private static SourceDTO toDTO(RuleSource source) {
+        return new SourceDTO(source.getRuleMetrics().stream().map(RuleService::toDTO).toList());
+    }
+
+    private static SignalDTO toDTO(RuleSignal rs) {
+        return new SignalDTO(rs.getKey(), rs.getDisplayName(), rs.getDescription());
+    }
+
+    private static ActuatorDTO toDTO(Actuator actuator) {
+        return new ActuatorDTO(actuator.getActions().stream().map(RuleService::toDTO).toList());
+    }
+
+    private static ActuatorActionDTO toDTO(Action action) {
+        return new ActuatorActionDTO(
+                action.getKey(),
+                action.getDisplayName(),
+                action.getDescription(),
+                action.getParams()
+        );
+    }
+
     public record ListRulesResponse(List<RuleDTO> rules){};
     public record CreateRuleRequest(String coopId, RuleDTO rule){};
     public record CreateRuleResponse(RuleDTO rule){};
+    public record ListRuleSourcesResponse(List<RuleComponentDTO> components, Map<String, SourceDTO> sources){}
+    public record ListActuatorsResponse(List<RuleComponentDTO> components, Map<String, ActuatorDTO> actions){}
+
+    public record SignalDTO(String key, String displayName, String description){}
+    public record SourceDTO(List<SignalDTO> signals){}
+
 
     public record RuleComponentDTO(String id, String name, String serialNumber, String type){};
-    public record RuleActionDTO(String id, RuleComponentDTO component, String action){};
+    public record RuleActionDTO(String id, RuleComponentDTO component, String actionKey, Map<String, String> params){};
     public record ScheduleTriggerDTO(String id, String frequency, int hour, int minute, int gap){};
-    public record ComponentTriggerDTO(String id, RuleComponentDTO component, String metric, double threshold, String operator){};
+    public record ComponentTriggerDTO(String id, RuleComponentDTO component, String signal, double threshold, String operator){};
     public record RuleDTO(String id, String name, String status, List<ComponentTriggerDTO> componentTriggers, List<ScheduleTriggerDTO> scheduleTriggers, List<RuleActionDTO> actions){};
+    public record ActuatorActionDTO(String key, String displayName, String description, String[] params){}
+    public record ActuatorDTO(List<ActuatorActionDTO> actions){}
 
 }

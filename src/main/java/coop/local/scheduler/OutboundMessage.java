@@ -18,6 +18,7 @@ public class OutboundMessage {
     private Consumer<OutboundMessage> onTxSuccess;
     private Consumer<OutboundMessage> onTxFailure;
     private Consumer<OutboundMessage> onAckSuccess;
+    private Consumer<OutboundMessage> onAckIgnored;
     private Consumer<OutboundMessage> onAckFailure;
 
 }

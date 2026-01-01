@@ -28,16 +28,16 @@ public class Job {
     private JobStatus status;
 
     @Column(name="created_at")
-    private long createdAt;
+    private Long createdAt;
 
     @Column(name="status_rank")
     private int rank;
 
     @Column(name="expire_at")
-    private long expireAt;
+    private Long expireAt;
 
     @Column(name="status_update_ts")
-    private long statusUpdateTs;
+    private Long statusUpdateTs;
 
     @OneToOne(cascade = CascadeType.ALL, orphanRemoval = true, optional = false)
     @JoinColumn(name="downlink_id", nullable = false, unique = true)
@@ -45,7 +45,8 @@ public class Job {
 
     @PrePersist
     void prePersist() {
-        if (statusUpdateTs == 0) statusUpdateTs = System.currentTimeMillis();
+        if (statusUpdateTs == null) statusUpdateTs = System.currentTimeMillis();
+        if (createdAt == null) createdAt = System.currentTimeMillis();
     }
 
     public boolean isExpired() {

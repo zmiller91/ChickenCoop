@@ -1,14 +1,16 @@
 package coop.shared.database.table.rule;
 
 import coop.shared.database.table.*;
-import lombok.Data;
+import lombok.Getter;
+import lombok.Setter;
 import org.hibernate.annotations.GenericGenerator;
 
 import javax.persistence.*;
 import java.util.ArrayList;
 import java.util.List;
 
-@Data
+@Getter
+@Setter
 @Entity
 @Table(name = "rule")
 public class Rule implements AuthorizerScopedTable {
