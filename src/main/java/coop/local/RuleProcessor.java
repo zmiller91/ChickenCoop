@@ -1,7 +1,5 @@
 package coop.local;
 
-import com.google.gson.JsonObject;
-import com.google.gson.JsonParser;
 import coop.device.Actuator;
 import coop.device.protocol.DownlinkFrame;
 import coop.device.protocol.event.Event;
@@ -50,35 +48,25 @@ public class RuleProcessor implements EventListener {
             return;
         }
 
-        // Only actuators can have command sent to them
+        // Only actuators can have actionKey sent to them
         if(!(component.getDeviceType().getDevice() instanceof Actuator device)) {
             return;
         }
 
         // Find all rules that have been satisfied
         // Find all actions from those satisfied rules
-        // Filter to only actions related to the component requesting a command
+        // Filter to only actions related to the component requesting a actionKey
         // Create the commands
         coop.getRules()
                 .stream()
                 .filter(this::isRuleSatisfied)
                 .flatMap(rule -> rule.getActions().stream())
                 .filter(action -> action.getComponentId().equals(component.getComponentId()))
+                .filter(action -> device.validateCommand(action.getActionKey(), action.getParams()))
                 .forEach(action -> {
-                    JsonObject actionBody = parseActionBody(action.getAction());
-                    if(actionBody != null) {
-                        DownlinkFrame downlink = device.createCommand(component.getSerialNumber(), actionBody);
-                        scheduler.create(component, downlink, action.getId());
-                    }
+                    DownlinkFrame downlink = device.createCommand(component.getSerialNumber(), action.getActionKey(), action.getParams());
+                    scheduler.create(component, downlink, action.getId());
                 });
-    }
-
-    private JsonObject parseActionBody(String body) {
-        try {
-            return JsonParser.parseString(body).getAsJsonObject();
-        } catch (Exception e) {
-            return null;
-        }
     }
 
     private boolean isRuleSatisfied(RuleState rule) {

@@ -7,6 +7,8 @@ import coop.device.protocol.UplinkFrame;
 
 import java.util.List;
 
+import static coop.device.types.scale.ScaleSensorSignals.WEIGHT;
+
 public class ScaleMessageParser implements EventParser {
 
     @Override
@@ -15,7 +17,7 @@ public class ScaleMessageParser implements EventParser {
         if(frame.isValid(1)) {
             Double weight = frame.getDoubleAt(0);
             if(weight != null) {
-                return List.of(new MetricEvent(frame.getSerialNumber(), "WEIGHT", weight));
+                return List.of(new MetricEvent(frame.getSerialNumber(), WEIGHT.getSignal().getKey(), weight));
             }
         }
 

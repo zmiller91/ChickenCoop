@@ -60,9 +60,6 @@ public class CoopRunner extends PiRunner {
     @Autowired
     private MetricCacheRepository metricCache;
 
-    @Autowired
-    private DownlinkRepository downlinkRepository;
-
     private long lastStateRefresh = 0;
     private final List<Invokable> invokables = new ArrayList<>();
 
@@ -74,7 +71,7 @@ public class CoopRunner extends PiRunner {
         provider.init();
 
         DownlinkDispatcher downlinkDispatcher = new DownlinkDispatcher(communication);
-        Scheduler scheduler = new Scheduler(provider, jobRepository, downlinkDispatcher, downlinkRepository);
+        Scheduler scheduler = new Scheduler(provider, jobRepository, downlinkDispatcher);
         MetricProcessor metricProcessor = new MetricProcessor(metricCache, provider);
         RuleProcessor ruleProcessor = new RuleProcessor(metricCache, scheduler);
 

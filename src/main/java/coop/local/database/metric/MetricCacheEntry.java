@@ -23,7 +23,7 @@ public class MetricCacheEntry {
     private Double value;
 
     @Column(name = "updated_at_ms", nullable = false)
-    private long updatedAtMs;
+    private Long updatedAtMs;
 
     @PrePersist
     @PreUpdate

@@ -1,11 +1,13 @@
 package coop.device.types.scale;
 
-import coop.device.ConfigKey;
-import coop.device.Device;
+import coop.device.*;
 import coop.device.protocol.parser.EventParser;
-import coop.device.Sensor;
 
-public class ScaleSensor implements Device, Sensor {
+import java.util.List;
+
+import static coop.device.types.scale.ScaleSensorSignals.WEIGHT;
+
+public class ScaleSensor implements Device, Sensor, RuleSource {
     @Override
     public String getDescription() {
         return "Weight Monitor";
@@ -19,5 +21,10 @@ public class ScaleSensor implements Device, Sensor {
     @Override
     public ConfigKey[] getConfig() {
         return new ConfigKey[]{};
+    }
+
+    @Override
+    public List<RuleSignal> getRuleMetrics() {
+        return List.of(WEIGHT.getSignal());
     }
 }

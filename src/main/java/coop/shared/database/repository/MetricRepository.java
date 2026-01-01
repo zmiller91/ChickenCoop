@@ -84,7 +84,7 @@ public class MetricRepository extends AuthorizerScopedRepository<CoopMetric> {
                 SELECT
                     `COMPONENT_ID` AS `componentId`,
                     CAST(`%s` AS CHAR) AS `date`,
-                    `METRIC` AS `metric`,
+                    `METRIC` AS `signal`,
                     ROUND(AVG(`VALUE`)) as `value`
                 FROM metrics
                 WHERE `COOP_ID` = :coopId
@@ -167,7 +167,7 @@ public class MetricRepository extends AuthorizerScopedRepository<CoopMetric> {
                 SELECT
                     `COMPONENT_ID` AS `componentId`,
                     CAST(`%s` AS CHAR) AS `date`,
-                    `METRIC` AS `metric`,
+                    `METRIC` AS `signal`,
                     ROUND(AVG(`VALUE`)) as `value`
                 FROM metrics
                 WHERE `COOP_ID` = :coopId
@@ -218,13 +218,13 @@ public class MetricRepository extends AuthorizerScopedRepository<CoopMetric> {
                     AVG(`VALUE`) AS `value`
                 FROM metrics
                 WHERE COOP_ID = :coopId
-                AND metric = :metric
+                AND signal = :signal
                 GROUP BY `%s`
         """, column, column);
 
         return sessionFactory.getCurrentSession().createNativeQuery(query)
                 .setParameter("coopId", coop.getId())
-                .setParameter("metric", metric)
+                .setParameter("signal", metric)
                 .setResultTransformer(new AliasToBeanResultTransformer(MetricDataRow.class))
                 .list();
     }

@@ -104,7 +104,8 @@ public class StateFactory {
     private List<RuleActionState> toActionState(List<RuleAction> actions) {
         return actions.stream().map(action -> {
             RuleActionState state = new RuleActionState();
-            state.setAction(action.getAction());
+            state.setActionKey(action.getActionKey());
+            state.setParams(action.getParamsMap());
             state.setId(action.getId());
             state.setComponentId(action.getComponent().getComponentId());
             return state;

@@ -1,14 +1,16 @@
 package coop.device.types.valve;
 
-import com.google.gson.Gson;
-import com.google.gson.JsonObject;
+import coop.device.Action;
 import coop.device.Actuator;
 import coop.device.ConfigKey;
 import coop.device.Device;
-import coop.device.protocol.command.Command;
 import coop.device.protocol.DownlinkFrame;
 import coop.device.protocol.parser.CommandEventParser;
 import coop.device.protocol.parser.EventParser;
+
+import java.util.Arrays;
+import java.util.List;
+import java.util.Map;
 
 public class ValveActuator implements Device, Actuator {
     @Override
@@ -27,37 +29,22 @@ public class ValveActuator implements Device, Actuator {
     }
 
     @Override
-    public boolean validateCommand(JsonObject object) {
-        Command command = getCommand(object);
-        return command != null && command.isValid();
+    public boolean validateCommand(String name, Map<String, String> params) {
+        ValveAction action = ValveAction.findByName(name);
+        return action != null && action.getCommand().isValid(params);
     }
 
     @Override
-    public DownlinkFrame createCommand(String serialNumber, JsonObject object) {
-        Command command = getCommand(object);
-        if(command == null) {
+    public DownlinkFrame createCommand(String serialNumber, String name, Map<String, String> params) {
+        if(!validateCommand(name, params)) {
             return null;
         }
-
-        return command.getCommand(serialNumber);
+        ValveAction action = ValveAction.findByName(name);
+        return action.getCommand().getCommand(serialNumber, params);
     }
 
-    private Command getCommand(JsonObject object) {
-
-        if(object == null) {
-            return null;
-        }
-
-        try {
-            String commandId = object.get("commandId").getAsString();
-            if (commandId.equals(TurnOnCommand.COMMAND_ID)) {
-                return new Gson().fromJson(object, TurnOnCommand.class);
-            }
-
-            return null;
-
-        } catch (Exception e) {
-            return null;
-        }
+    @Override
+    public List<Action> getActions() {
+        return Arrays.stream(ValveAction.values()).map(ValveAction::getAction).toList();
     }
 }

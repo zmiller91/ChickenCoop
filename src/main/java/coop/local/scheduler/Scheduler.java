@@ -6,10 +6,8 @@ import coop.device.protocol.event.Event;
 import coop.device.protocol.event.RxOpenEvent;
 import coop.local.Invokable;
 import coop.local.database.downlink.Downlink;
-import coop.local.database.downlink.DownlinkRepository;
 import coop.local.listener.EventListener;
 import coop.local.EventPayload;
-import coop.local.comms.Communication;
 import coop.local.database.job.Job;
 import coop.local.database.job.JobRepository;
 import coop.local.database.job.JobStatus;
@@ -18,21 +16,9 @@ import coop.shared.pi.config.ComponentState;
 import org.springframework.dao.DataIntegrityViolationException;
 
 import java.time.Duration;
-import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
-
-// TODO: I don't think this scheduler is totally right. It works and it may be fine, but it may also result in a
-//       component being starved. A component may shut off it's radio before it ever gets it's command due to resource
-//       contention, then when it requests a command again it may experience the same behavior.
-//       -
-//       We may need to implement some process where rules are created and if they can't immediately be executed they
-//       are stored and we respond to the component with an ACK. The rule can then be placed in a queue and optimistically
-//       consume resources. Then when the device requests a command again it can immediately be started.
-//       -
-//       The issue I forsee is water valve commands having a longer duration than a device radio stays on. Asking the
-//       device to listen for long periods of time will drain the battery.
 
 public class Scheduler implements EventListener, Invokable {
     private static final Duration PURGE_FREQUENCY = Duration.ofHours(6);
@@ -40,7 +26,6 @@ public class Scheduler implements EventListener, Invokable {
     private final JobRepository jobRepository;
     private final DownlinkDispatcher downlinkDispatcher;
     private final ResourceManager resourceManager;
-    private final DownlinkRepository downlinkRepository;
 
     private final Set<String> dedupeKeys = new HashSet<>();
     private final CircularBuffer<Job> buffer = new CircularBuffer<>();
@@ -48,13 +33,11 @@ public class Scheduler implements EventListener, Invokable {
 
     public Scheduler(LocalStateProvider stateProvider,
                      JobRepository jobRepository,
-                     DownlinkDispatcher downlinkDispatcher,
-                     DownlinkRepository downlinkRepository) {
+                     DownlinkDispatcher downlinkDispatcher) {
 
         this.jobRepository = jobRepository;
         this.resourceManager = new ResourceManager(stateProvider);
         this.downlinkDispatcher = downlinkDispatcher;
-        this.downlinkRepository = downlinkRepository;
         purgeIfNecessary();
         hydrate();
     }
@@ -71,14 +54,23 @@ public class Scheduler implements EventListener, Invokable {
 
         //TODO: Devices have 20 minutes to check in, otherwise they go to the back of the line
         List<Job> expiredReservations = jobRepository.findReservedJobsOlderThan(Duration.ofMinutes(20));
-        for(Job expired : expiredReservations) {
-            expired.setStatus(JobStatus.CREATED);
-            resourceManager.stopConsuming(expired);
-            jobRepository.unreserve(expired);
+        for(Job reserved : expiredReservations) {
+            reserved.setStatus(JobStatus.CREATED);
+            resourceManager.stopConsuming(reserved);
+            jobRepository.unreserve(reserved);
 
             // Check if the change stuck, otherwise it's probably processing.
-            if(JobStatus.CREATED.equals(expired.getStatus())) {
-                buffer.add(expired);
+            if(JobStatus.CREATED.equals(reserved.getStatus())) {
+
+                // Expire any jobs that expired while they were reserved.
+                if(reserved.isExpired()) {
+                    reserved.setStatus(JobStatus.FAILED);
+                    jobRepository.updateStatus(reserved);
+
+                // Otherwise add the job to the end of the queue so it can be processed again
+                } else {
+                    buffer.add(reserved);
+                }
             }
         }
     }
@@ -226,7 +218,6 @@ public class Scheduler implements EventListener, Invokable {
             if(resourceManager.tryToConsume(job)) {
                 sendToDispatcher(job);
             } else {
-                // TODO: Send message to device indicating it should come back later
                 buffer.add(job);
             }
 

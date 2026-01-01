@@ -4,7 +4,6 @@ import coop.device.protocol.DownlinkFrame;
 import lombok.Data;
 
 import javax.persistence.*;
-import java.time.Instant;
 
 @Entity
 @Table(name = "downlink")
@@ -28,17 +27,17 @@ public class Downlink {
     private boolean requiresAck;
 
     @Column(name = "created_at", nullable = false)
-    private Instant createdAt;
+    private Long createdAt;
 
     @Column(name = "sent_at")
-    private Instant sentAt;
+    private Long sentAt;
 
     @Column(name = "ack_at")
-    private Instant ackAt;
+    private Long ackAt;
 
     @PrePersist
     void prePersist() {
-        if (createdAt == null) createdAt = Instant.now();
+        if (createdAt == null) createdAt = System.currentTimeMillis();
     }
 
     public static Downlink from(DownlinkFrame frame) {
