@@ -7,6 +7,4 @@ import lombok.Getter;
 @AllArgsConstructor
 public class RuleSignal {
     private String key;
-    private String displayName;
-    private String description;
 }

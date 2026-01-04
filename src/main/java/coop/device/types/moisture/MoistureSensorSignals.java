@@ -6,11 +6,11 @@ import lombok.Getter;
 @Getter
 public enum MoistureSensorSignals {
 
-    MOISTURE_PERCENT("Soil Moisture (%)", "Measures relative water content in soil.");
+    MOISTURE_PERCENT;
 
     private final RuleSignal signal;
-    MoistureSensorSignals(String displayName, String description) {
-        this.signal = new RuleSignal(this.name(), displayName, description);
+    MoistureSensorSignals() {
+        this.signal = new RuleSignal(this.name());
     }
 
 }

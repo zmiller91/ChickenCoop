@@ -284,7 +284,7 @@ public class RuleService {
     }
 
     private static SignalDTO toDTO(RuleSignal rs) {
-        return new SignalDTO(rs.getKey(), rs.getDisplayName(), rs.getDescription());
+        return new SignalDTO(rs.getKey());
     }
 
     private static ActuatorDTO toDTO(Actuator actuator) {
@@ -294,8 +294,6 @@ public class RuleService {
     private static ActuatorActionDTO toDTO(Action action) {
         return new ActuatorActionDTO(
                 action.getKey(),
-                action.getDisplayName(),
-                action.getDescription(),
                 action.getParams()
         );
     }
@@ -306,7 +304,7 @@ public class RuleService {
     public record ListRuleSourcesResponse(List<RuleComponentDTO> components, Map<String, SourceDTO> sources){}
     public record ListActuatorsResponse(List<RuleComponentDTO> components, Map<String, ActuatorDTO> actions){}
 
-    public record SignalDTO(String key, String displayName, String description){}
+    public record SignalDTO(String key){}
     public record SourceDTO(List<SignalDTO> signals){}
 
 
@@ -315,7 +313,7 @@ public class RuleService {
     public record ScheduleTriggerDTO(String id, String frequency, int hour, int minute, int gap){};
     public record ComponentTriggerDTO(String id, RuleComponentDTO component, String signal, double threshold, String operator){};
     public record RuleDTO(String id, String name, String status, List<ComponentTriggerDTO> componentTriggers, List<ScheduleTriggerDTO> scheduleTriggers, List<RuleActionDTO> actions){};
-    public record ActuatorActionDTO(String key, String displayName, String description, String[] params){}
+    public record ActuatorActionDTO(String key, String[] params){}
     public record ActuatorDTO(List<ActuatorActionDTO> actions){}
 
 }

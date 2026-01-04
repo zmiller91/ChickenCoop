@@ -8,8 +8,6 @@ import lombok.Getter;
 public class Action {
 
     private String key;
-    private String displayName;
-    private String description;
     private String[] params;
 
 }

@@ -6,11 +6,11 @@ import lombok.Getter;
 @Getter
 public enum ScaleSensorSignals {
 
-    WEIGHT("Weight", "Measures the total weight currently detected by the scale.");
+    WEIGHT;
 
     private final RuleSignal signal;
-    ScaleSensorSignals(String displayName, String description) {
-        this.signal = new RuleSignal(this.name(), displayName, description);
+    ScaleSensorSignals() {
+        this.signal = new RuleSignal(this.name());
     }
 
 }
