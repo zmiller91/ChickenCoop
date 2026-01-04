@@ -9,13 +9,13 @@ import java.util.Arrays;
 @Getter
 public enum ValveAction {
 
-    TURN_ON("Open Valve", "Opens the water valve.", new TurnOnCommand("1007"), "duration"),
-    TURN_OFF("Close valve", "Closes the water valve.", new TurnOnCommand("1007"));
+    TURN_ON(new TurnOnCommand("1007"), "duration"),
+    TURN_OFF(new TurnOnCommand("1007"));
 
     private final Action action;
     private final Command command;
-    ValveAction(String displayName, String description, Command command, String... params) {
-        this.action = new Action(this.name(), displayName, description, params);
+    ValveAction(Command command, String... params) {
+        this.action = new Action(this.name(), params);
         this.command = command;
     }
 
