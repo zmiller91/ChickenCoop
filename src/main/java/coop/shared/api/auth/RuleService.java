@@ -100,6 +100,24 @@ public class RuleService {
         );
     }
 
+    @GetMapping("{coopId}/{ruleId}")
+    public GetRuleResponse getRule(
+            @PathVariable("coopId") String coopId,
+            @PathVariable("ruleId") String ruleId) {
+
+        Coop coop = coopRepository.findById(userContext.getCurrentUser(), coopId);
+        if(coop == null) {
+            throw new NotFound("Coop not found.");
+        }
+
+        Rule rule = ruleRepository.findById(coop.getUser(), ruleId);
+        if(rule == null || rule.getCoop() != coop) {
+            throw new NotFound("Rule not found.");
+        }
+
+        return new GetRuleResponse(toDTO(rule));
+    }
+
     @PostMapping("/create")
     public CreateRuleResponse create(@RequestBody CreateRuleRequest request) {
         
@@ -303,10 +321,10 @@ public class RuleService {
     public record CreateRuleResponse(RuleDTO rule){};
     public record ListRuleSourcesResponse(List<RuleComponentDTO> components, Map<String, SourceDTO> sources){}
     public record ListActuatorsResponse(List<RuleComponentDTO> components, Map<String, ActuatorDTO> actions){}
+    public record GetRuleResponse(RuleDTO rule){};
 
     public record SignalDTO(String key){}
     public record SourceDTO(List<SignalDTO> signals){}
-
 
     public record RuleComponentDTO(String id, String name, String serialNumber, String type){};
     public record RuleActionDTO(String id, RuleComponentDTO component, String actionKey, Map<String, String> params){};
