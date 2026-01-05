@@ -19,14 +19,14 @@ import coop.shared.pi.StateProvider;
 import coop.shared.pi.config.CoopState;
 import coop.shared.security.AuthContext;
 import org.apache.commons.lang3.ObjectUtils;
+import org.apache.logging.log4j.util.Strings;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.EnableTransactionManagement;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 @EnableTransactionManagement
@@ -111,12 +111,216 @@ public class RuleService {
         }
 
         Rule rule = ruleRepository.findById(coop.getUser(), ruleId);
-        if(rule == null || rule.getCoop() != coop) {
+        if(rule == null || !rule.getCoop().equals(coop)) {
             throw new NotFound("Rule not found.");
         }
 
         return new GetRuleResponse(toDTO(rule));
     }
+
+    @DeleteMapping("{coopId}/{ruleId}")
+    public void delete(
+            @PathVariable("coopId") String coopId,
+            @PathVariable("ruleId") String ruleId) {
+
+        Coop coop = coopRepository.findById(userContext.getCurrentUser(), coopId);
+        if(coop == null) {
+            throw new NotFound("Coop not found.");
+        }
+
+        Rule rule = ruleRepository.findById(coop.getUser(), ruleId);
+        if(rule == null || !rule.getCoop().equals(coop)) {
+            throw new NotFound("Rule not found.");
+        }
+
+        ruleRepository.delete(rule);
+    }
+
+    @PutMapping("{coopId}/{ruleId}")
+    public void updateRule(
+            @PathVariable("coopId") String coopId,
+            @PathVariable("ruleId") String ruleId,
+            @RequestBody UpdateRuleRequest request) {
+
+        if(request.rule == null) {
+            throw new BadRequest("Rule is empty.");
+        }
+
+        Coop coop = coopRepository.findById(userContext.getCurrentUser(), coopId);
+        if(coop == null) {
+            throw new NotFound("Coop not found.");
+        }
+
+        Rule rule = ruleRepository.findById(coop.getUser(), ruleId);
+        if(rule == null || !rule.getCoop().equals(coop)) {
+            throw new NotFound("Rule not found.");
+        }
+
+        if(!ruleId.equals(request.rule.id)) {
+            throw new BadRequest("Invalid resource.");
+        }
+
+        rule.setName(request.rule.name);
+
+        // Actions
+        deleteActionsInUpdate(rule, request);
+        addActionsInUpdate(rule, request);
+        updateActionsInUpdate(rule, request);
+
+        // Component triggers
+        deleteComponentTriggersInUpdate(rule, request);
+        addComponentTriggersInUpdate(rule, request);
+        updateComponentTriggersInUpdate(rule, request);
+
+        ruleRepository.persist(rule);
+    }
+
+    private void updateComponentTriggersInUpdate(Rule rule, UpdateRuleRequest request) {
+        Map<String, ComponentRuleTrigger> triggersById = rule.getComponentTriggers().stream()
+                .filter(a -> !Strings.isBlank(a.getId()))
+                .collect(Collectors.toMap(ComponentRuleTrigger::getId, Function.identity()));
+
+        for (ComponentTriggerDTO dto : request.rule().componentTriggers()) {
+            if (Strings.isBlank(dto.id)) continue;
+
+            ComponentRuleTrigger trigger = triggersById.get(dto.id);
+            if (trigger == null) {
+                throw new NotFound("Component trigger not found: " + dto.id);
+            }
+
+            Component component = componentRepository.findById(rule.getPi(), dto.component.id);
+            if (component == null || !component.getCoop().equals(rule.getCoop())) {
+                throw new NotFound("Component not found: " + dto.component.id);
+            }
+
+            trigger.setComponent(component);
+            trigger.setOperator(Operator.valueOf(dto.operator));
+            trigger.setThreshold(dto.threshold);
+            trigger.setMetric(dto.signal);
+        }
+    }
+
+
+    private void addComponentTriggersInUpdate(Rule rule, UpdateRuleRequest request) {
+
+        List<ComponentRuleTrigger> newComponentTriggers = request.rule().componentTriggers()
+                .stream()
+                .filter( a -> a.id == null)
+                .map(dto -> {
+
+                    Component component = componentRepository.findById(rule.getPi(), dto.component.id);
+                    if (component == null || !component.getCoop().equals(rule.getCoop())) {
+                        throw new NotFound("Component not found: " + dto.component.id);
+                    }
+
+                    ComponentRuleTrigger trigger = new ComponentRuleTrigger();
+                    trigger.setComponent(component);
+                    trigger.setOperator(Operator.valueOf(dto.operator));
+                    trigger.setThreshold(dto.threshold);
+                    trigger.setMetric(dto.signal);
+                    trigger.setRule(rule);
+                    return trigger;
+
+                }).toList();
+
+        rule.getComponentTriggers().addAll(newComponentTriggers);
+    }
+
+    private void deleteComponentTriggersInUpdate(Rule rule, UpdateRuleRequest request) {
+        Set<String> idsInRequest = request.rule().componentTriggers().stream()
+                .map(ComponentTriggerDTO::id)
+                .filter(id -> !Strings.isBlank(id))
+                .collect(Collectors.toSet());
+
+        List<ComponentRuleTrigger> toRemove = rule.getComponentTriggers().stream()
+                .filter(t -> !idsInRequest.contains(t.getId()))
+                .toList();
+
+        toRemove.forEach(rule::removeComponentTrigger);
+    }
+
+
+    private void updateActionsInUpdate(Rule rule, UpdateRuleRequest request) {
+        Map<String, RuleAction> actionsById = rule.getActions().stream()
+                .filter(a -> !Strings.isBlank(a.getId()))
+                .collect(Collectors.toMap(RuleAction::getId, Function.identity()));
+
+        for (RuleActionDTO dto : request.rule().actions()) {
+            if (Strings.isBlank(dto.id)) continue;
+
+            RuleAction action = actionsById.get(dto.id);
+            if (action == null) {
+                throw new NotFound("Rule action not found: " + dto.id);
+            }
+
+            Component component = componentRepository.findById(rule.getPi(), dto.component.id);
+            if (component == null || !component.getCoop().equals(rule.getCoop())) {
+                throw new NotFound("Component not found: " + dto.component.id);
+            }
+
+            // Need to make sure any existing params are updated, instead of inserted as an insert can cause a
+            // unique key constraint violation
+            Map<String, RuleActionParam> paramsByKey = action.getParams()
+                    .stream()
+                    .collect(Collectors.toMap(RuleActionParam::getKey, Function.identity()));
+
+            for(Map.Entry<String, String> param : dto.params.entrySet()) {
+
+                if(paramsByKey.containsKey(param.getKey())) {
+                    paramsByKey.get(param.getKey()).setValue(param.getValue());
+
+                } else {
+                    RuleActionParam newParam = new RuleActionParam();
+                    newParam.setKey(param.getKey());
+                    newParam.setValue(param.getValue());
+                    newParam.setRuleAction(action);
+                    action.getParams().add(newParam);
+                }
+
+            }
+
+            action.setActionKey(dto.actionKey);
+            action.setComponent(component);
+        }
+    }
+
+    private void addActionsInUpdate(Rule rule, UpdateRuleRequest request) {
+
+        List<RuleAction> newActions = request.rule().actions()
+                .stream()
+                .filter( a -> a.id == null)
+                .map(dto -> {
+
+                    Component component = componentRepository.findById(rule.getPi(), dto.component.id);
+                    if(component == null || !component.getCoop().equals(rule.getCoop())) {
+                        throw new NotFound("Component not found: " + dto.component.id);
+                    }
+
+                    RuleAction action = new RuleAction();
+                    action.setActionKey(dto.actionKey);
+                    action.setParamsMap(dto.params);
+                    action.setComponent(component);
+                    action.setRule(rule);
+                    return action;
+
+                }).toList();
+
+        rule.getActions().addAll(newActions);
+    }
+
+    private void deleteActionsInUpdate(Rule rule, UpdateRuleRequest request) {
+        Set<String> idsInRequest = request.rule().actions().stream()
+                .map(a -> a.id)
+                .filter(id -> !Strings.isBlank(id))
+                .collect(Collectors.toSet());
+
+        List<RuleAction> toRemove = rule.getActions().stream()
+                .filter(a -> !idsInRequest.contains(a.getId()))
+                .toList();
+
+        toRemove.forEach(rule::removeAction);
+    }
+
 
     @PostMapping("/create")
     public CreateRuleResponse create(@RequestBody CreateRuleRequest request) {
@@ -322,6 +526,7 @@ public class RuleService {
     public record ListRuleSourcesResponse(List<RuleComponentDTO> components, Map<String, SourceDTO> sources){}
     public record ListActuatorsResponse(List<RuleComponentDTO> components, Map<String, ActuatorDTO> actions){}
     public record GetRuleResponse(RuleDTO rule){};
+    public record UpdateRuleRequest(RuleDTO rule) { }
 
     public record SignalDTO(String key){}
     public record SourceDTO(List<SignalDTO> signals){}

@@ -32,16 +32,13 @@ public class Rule implements AuthorizerScopedTable {
     @Enumerated(EnumType.STRING)
     private Status status;
 
-    @OneToMany(cascade = CascadeType.ALL, orphanRemoval = true)
-    @JoinColumn(name = "rule_id")
+    @OneToMany(mappedBy = "rule", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<ComponentRuleTrigger> componentTriggers = new ArrayList<>();
 
-    @OneToMany(cascade = CascadeType.ALL, orphanRemoval = true)
-    @JoinColumn(name = "rule_id")
+    @OneToMany(mappedBy = "rule", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<ScheduledRuleTrigger> scheduleTriggers = new ArrayList<>();
 
-    @OneToMany(cascade = CascadeType.ALL, orphanRemoval = true)
-    @JoinColumn(name = "rule_id")
+    @OneToMany(mappedBy = "rule", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<RuleAction> actions = new ArrayList<>();
 
     @Override
@@ -52,5 +49,34 @@ public class Rule implements AuthorizerScopedTable {
     @Override
     public Pi getPi() {
         return coop.getPi();
+    }
+
+    public void addScheduledTrigger(ScheduledRuleTrigger t) {
+        scheduleTriggers.add(t);
+        t.setRule(this);
+    }
+
+    public void removeScheduledTrigger(ScheduledRuleTrigger t) {
+        scheduleTriggers.remove(t);
+        t.setRule(null);
+    }
+
+    public void addComponentTrigger(ComponentRuleTrigger t) {
+        componentTriggers.add(t);
+        t.setRule(this);
+    }
+
+    public void removeComponentTrigger(ComponentRuleTrigger t) {
+        componentTriggers.remove(t);
+        t.setRule(null);
+    }
+    public void addAction(RuleAction a) {
+        actions.add(a);
+        a.setRule(this);
+    }
+
+    public void removeAction(RuleAction a) {
+        actions.remove(a);
+        a.setRule(null);
     }
 }
