@@ -20,8 +20,8 @@ public class ComponentRuleTrigger implements AuthorizerScopedTable {
     @Column(columnDefinition = "CHAR(32)", name = "rule_trigger_component_id")
     private String id;
 
-    @ManyToOne
-    @JoinColumn(name = "rule_id")
+    @ManyToOne(optional = false)
+    @JoinColumn(name = "rule_id", nullable = false)
     private Rule rule;
 
     @ManyToOne

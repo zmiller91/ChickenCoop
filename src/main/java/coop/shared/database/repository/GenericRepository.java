@@ -33,6 +33,10 @@ public abstract class GenericRepository<T> {
         sessionFactory.getCurrentSession().flush();
     }
 
+    public void delete(T obj) {
+        sessionFactory.getCurrentSession().remove(obj);
+    }
+
 
     public T findById(Serializable id) {
         return sessionFactory.getCurrentSession().get(getObjClass(), id);
