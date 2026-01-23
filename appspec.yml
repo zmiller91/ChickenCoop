@@ -1,15 +1,15 @@
 version: 0.0
 os: linux
 files:
-  - source: ChickenCoop-1.0-SNAPSHOT.jar
+  - source: target/ChickenCoop-1.0-SNAPSHOT.jar
     destination: /home/ec2-user/coop
   - source: shared/V1__init_web_tables.sql
+    destination: /home/ec2-user/coop/sql
+  - source: scripts/aws/createtables.sh
     destination: /home/ec2-user/coop
-  - source: createtables.sh
+  - source: scripts/aws/start.sh
     destination: /home/ec2-user/coop
-  - source: start.sh
-    destination: /home/ec2-user/coop
-  - source: shutdown.sh
+  - source: scripts/aws/shutdown.sh
     destination: /home/ec2-user/coop
 hooks:
   AfterInstall:
