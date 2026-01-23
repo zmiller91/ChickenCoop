@@ -11,6 +11,8 @@ files:
     destination: /home/ec2-user/coop
   - source: scripts/aws/shutdown.sh
     destination: /home/ec2-user/coop
+  - source: shutdown.sh
+    destination: /home/ec2-user/coop
 hooks:
   AfterInstall:
     - location: scripts/aws/createtables.sh
