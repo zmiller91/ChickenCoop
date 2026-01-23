@@ -3,7 +3,7 @@ os: linux
 files:
   - source: target/ChickenCoop-1.0-SNAPSHOT.jar
     destination: /home/ec2-user/coop
-  - source: sql/**/*
+  - source: sql/
     destination: /home/ec2-user/coop/sql
   - source: scripts/aws/createtables.sh
     destination: /home/ec2-user/coop
