@@ -9,7 +9,7 @@ public class RxOpenEvent implements Event {
     public static final String TAG = "RXOPEN";
 
     private String serialNumber;
-    private long duration;
+    private long duration; // in seconds
 
     public static RxOpenEvent from(UplinkFrame frame) {
         RxOpenEvent rxopen = new RxOpenEvent();
