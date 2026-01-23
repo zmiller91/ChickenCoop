@@ -3,4 +3,4 @@ HOST=$(echo $SECRET_STRING | jq -r .host)
 USERNAME=$(echo $SECRET_STRING | jq -r .username)
 PASSWORD=$(echo $SECRET_STRING | jq -r .password)
 
-mysql -u $USERNAME -p"${PASSWORD}" -h "${HOST}"
+mysql -u $USERNAME -p"${PASSWORD}" -h "${HOST}"g

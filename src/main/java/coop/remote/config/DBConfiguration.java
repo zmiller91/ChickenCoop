@@ -42,6 +42,7 @@ public class DBConfiguration {
             username = info.get("username").getAsString();
             password = info.get("password").getAsString();
             host = info.get("host").getAsString();
+            port = info.get("port").getAsString();
         }
 
         return DataSourceBuilder.create()
