@@ -13,11 +13,11 @@ files:
     destination: /home/ec2-user/coop
 hooks:
   AfterInstall:
-    - location: createtables.sh
+    - location: scripts/aws/createtables.sh
       timeout: 300
   ApplicationStart:
-    - location: start.sh
+    - location: scripts/aws/start.sh
       timeout: 300
   ApplicationStop:
-    - location: shutdown.sh
+    - location: scripts/aws/shutdown.sh
       timeout: 300
