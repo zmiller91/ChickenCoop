@@ -44,6 +44,12 @@ public class Scheduler implements EventListener, Invokable {
 
     @Override
     public synchronized void invoke() {
+
+        // TODO: To reduce the liklihood that a job hogs a resource, we should force it to send a heartbeat and then
+        //       expire after a short period. Right now the resource expires after 6 hours no matter what but we can
+        //       reduce that by sending a heartbeat every 15 minutes and expiring after 30.
+
+
         expireReservations();
         createReservations();
         executeNextJob();
