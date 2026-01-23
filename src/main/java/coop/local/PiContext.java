@@ -44,6 +44,14 @@ public class PiContext {
         return context.get("pi_id");
     }
 
+    public String dbUser() {
+        return context.get("db_user");
+    }
+
+    public String dbPassword() {
+        return context.get("db_password");
+    }
+
     private Map<String, String> parse(String location) {
         try {
 

@@ -1,5 +1,6 @@
 package coop.local.config;
 
+import coop.local.PiContext;
 import org.hibernate.SessionFactory;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
@@ -18,10 +19,10 @@ public class DBConfiguration {
 
     @Bean
     @Primary
-    DataSource dataSource(@Value("${db.user}") String username, @Value("${db.password}") String password) {
+    DataSource dataSource(PiContext context) {
         return DataSourceBuilder.create()
-                .username(username)
-                .password(password)
+                .username(context.dbUser())
+                .password(context.dbPassword())
                 .url("jdbc:mysql://localhost:3306/local_pi")
                 .driverClassName("com.mysql.cj.jdbc.Driver")
                 .build();
@@ -44,10 +45,10 @@ public class DBConfiguration {
 
     @Bean
     @Qualifier("piDataSource")
-    DataSource piDataSource(@Value("${db.user}") String username, @Value("${db.password}") String password) {
+    DataSource piDataSource(PiContext context) {
         return DataSourceBuilder.create()
-                .username(username)
-                .password(password)
+                .username(context.dbUser())
+                .password(context.dbPassword())
                 .url("jdbc:mysql://localhost:3306/pi_state")
                 .driverClassName("com.mysql.cj.jdbc.Driver")
                 .build();
