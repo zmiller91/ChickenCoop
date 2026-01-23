@@ -9,7 +9,7 @@ CREATE TABLE IF NOT EXISTS `users` (
 
 CREATE TABLE IF NOT EXISTS `authorities` (
 	`AUTHORITY_ID` MEDIUMINT NOT NULL AUTO_INCREMENT,
-    `USER_ID` varchar(128) NOT NULL,
+    `USER_ID` varchar(32) NOT NULL,
     `AUTHORITY` varchar(128) NOT NULL,
     PRIMARY KEY (`AUTHORITY_ID`),
     UNIQUE KEY `AUTHORITIES_UNIQUE` (`USER_ID`,`AUTHORITY`),
@@ -136,7 +136,7 @@ CREATE TABLE IF NOT EXISTS `metrics` (
 
 CREATE TABLE IF NOT EXISTS rule_action_param (
   rule_action_param_id BIGINT AUTO_INCREMENT PRIMARY KEY,
-  rule_action_id CHAR(32) NOT NULL,
+  rule_action_id VARCHAR(32) NOT NULL,
   param_key VARCHAR(64) NOT NULL,
   param_value VARCHAR(255),
 

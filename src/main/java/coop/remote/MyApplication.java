@@ -8,10 +8,10 @@ import org.springframework.scheduling.annotation.EnableScheduling;
 @SpringBootApplication
 @ComponentScan(basePackages = {"coop.shared", "coop.remote"})
 @EnableScheduling
-public class Main {
+public class MyApplication {
 
     public static void main(String[] args) {
-        SpringApplication.run(Main.class, args);
+        SpringApplication.run(MyApplication.class, args);
     }
 
 }
