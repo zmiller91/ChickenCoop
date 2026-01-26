@@ -6,8 +6,10 @@ import coop.device.Actuator;
 import coop.device.RuleSignal;
 import coop.device.RuleSource;
 import coop.shared.database.repository.ComponentRepository;
+import coop.shared.database.repository.ContactRepository;
 import coop.shared.database.repository.CoopRepository;
 import coop.shared.database.repository.RuleRepository;
+import coop.shared.database.table.Contact;
 import coop.shared.database.table.Coop;
 import coop.shared.database.table.Status;
 import coop.shared.database.table.component.Component;
@@ -19,6 +21,8 @@ import coop.shared.pi.StateProvider;
 import coop.shared.pi.config.CoopState;
 import coop.shared.security.AuthContext;
 import org.apache.commons.lang3.ObjectUtils;
+import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.stream.Streams;
 import org.apache.logging.log4j.util.Strings;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.EnableTransactionManagement;
@@ -28,6 +32,9 @@ import org.springframework.web.bind.annotation.*;
 import java.util.*;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+
+import static coop.shared.database.table.rule.NotificationChannel.EMAIL;
+import static coop.shared.database.table.rule.NotificationChannel.TEXT;
 
 @EnableTransactionManagement
 @Transactional
@@ -43,6 +50,9 @@ public class RuleService {
 
     @Autowired
     private ComponentRepository componentRepository;
+
+    @Autowired
+    private ContactRepository contactRepository;
 
     @Autowired
     private RuleRepository ruleRepository;
@@ -172,6 +182,11 @@ public class RuleService {
         addComponentTriggersInUpdate(rule, request);
         updateComponentTriggersInUpdate(rule, request);
 
+        // Notifications
+        deleteNotificationsInUpdate(rule, request);
+        addNotificationsInUpdate(rule, request);
+        updateNotificationsInUpdate(rule, request);
+
         ruleRepository.persist(rule);
     }
 
@@ -199,7 +214,6 @@ public class RuleService {
             trigger.setMetric(dto.signal);
         }
     }
-
 
     private void addComponentTriggersInUpdate(Rule rule, UpdateRuleRequest request) {
 
@@ -321,6 +335,67 @@ public class RuleService {
         toRemove.forEach(rule::removeAction);
     }
 
+    private void updateNotificationsInUpdate(Rule rule, UpdateRuleRequest request) {
+        Map<String, RuleNotification> notificationsById = rule.getNotifications().stream()
+                .filter(a -> !Strings.isBlank(a.getId()))
+                .collect(Collectors.toMap(RuleNotification::getId, Function.identity()));
+
+        for (RuleNotificationDTO dto : request.rule().notifications()) {
+            if (Strings.isBlank(dto.id)) continue;
+
+            RuleNotification notification = notificationsById.get(dto.id);
+            if (notification == null) {
+                throw new NotFound("Rule notification not found: " + dto.id);
+            }
+
+            notification.setType(NotificationType.valueOf(dto.type));
+            notification.setLevel(NotificationLevel.valueOf(dto.level));
+            notification.setMessage(dto.message);
+
+        }
+    }
+
+    private void addNotificationsInUpdate(Rule rule, UpdateRuleRequest request) {
+
+        List<RuleNotification> newNotifications = request.rule().notifications()
+                .stream()
+                .filter( n -> n.id == null)
+                .map(dto -> {
+
+                    RuleNotification notification = new RuleNotification();
+                    notification.setType(NotificationType.valueOf(dto.type));
+                    notification.setLevel(NotificationLevel.valueOf(dto.level));
+                    notification.setChannel(NotificationChannel.valueOf(dto.channel));
+                    notification.setRule(rule);
+                    notification.setMessage(dto.message);
+
+                    if(EMAIL.equals(notification.getChannel()) || TEXT.equals(notification.getChannel())) {
+                        dto.recipients().forEach(recipient -> {
+                            Contact contact = contactRepository.findByIdAndCoop(rule.getCoop(), recipient.id());
+                            notification.addRecipient(contact);
+                        });
+                    }
+
+                    return notification;
+
+                }).toList();
+
+        newNotifications.forEach(rule::addNotification);
+    }
+
+    private void deleteNotificationsInUpdate(Rule rule, UpdateRuleRequest request) {
+        Set<String> idsInRequest = request.rule().notifications().stream()
+                .map(n -> n.id)
+                .filter(id -> !Strings.isBlank(id))
+                .collect(Collectors.toSet());
+
+        List<RuleNotification> toRemove = rule.getNotifications().stream()
+                .filter(a -> !idsInRequest.contains(a.getId()))
+                .toList();
+
+        toRemove.forEach(rule::removeNotification);
+    }
+
 
     @PostMapping("/create")
     public CreateRuleResponse create(@RequestBody CreateRuleRequest request) {
@@ -336,6 +411,7 @@ public class RuleService {
 
         verifyComponentTriggers(request.rule);
         verifyActions(request.rule);
+        verifyNotifications(coop, request.rule);
 
         Rule rule = new Rule();
         rule.setCoop(coop);
@@ -374,9 +450,35 @@ public class RuleService {
 
         }).toList();
 
+        List<RuleNotification> notifications = request.rule.notifications.stream().map(dto -> {
+
+            RuleNotification notification = new RuleNotification();
+            notification.setType(NotificationType.valueOf(dto.type));
+            notification.setLevel(NotificationLevel.valueOf(dto.level));
+            notification.setRule(rule);
+            notification.setMessage(dto.message);
+
+            for(ContactService.ContactDTO contactDTO : dto.recipients()) {
+
+                Contact contact = contactRepository.findByIdAndCoop(coop, contactDTO.id());
+
+                RuleNotificationRecipientId id = new RuleNotificationRecipientId();
+                id.setContactId(contact.getId());
+
+                RuleNotificationRecipient recipient = new RuleNotificationRecipient();
+                recipient.setContact(contact);
+                recipient.setId(id);
+
+                notification.addRecipient(recipient);
+            }
+
+            return notification;
+        }).toList();
+
 
         rule.setActions(actions);
         rule.setComponentTriggers(componentTriggers);
+        rule.setNotifications(notifications);
 
         ruleRepository.persist(rule);
         ruleRepository.flush();
@@ -387,6 +489,60 @@ public class RuleService {
         return new CreateRuleResponse(toDTO(rule));
     }
 
+    private void verifyNotifications(Coop coop, RuleDTO rule) {
+        List<RuleNotificationDTO> notifications = rule.notifications();
+        for(RuleNotificationDTO notification : notifications) {
+
+            if(StringUtils.isEmpty(notification.type())) {
+                throw new BadRequest("Notification type is missing.");
+            }
+
+            if(StringUtils.isEmpty(notification.level())) {
+                throw new BadRequest("Notification level is missing.");
+            }
+
+            if(StringUtils.isEmpty(notification.channel())) {
+                throw new BadRequest("Channel level is missing.");
+            }
+
+            if (Streams.of(NotificationChannel.values())
+                    .map(Enum::name)
+                    .noneMatch(channel -> channel.equals(notification.channel()))) {
+
+                throw new BadRequest("Unknown notification channel.");
+            }
+
+            if (Streams.of(NotificationLevel.values())
+                    .map(Enum::name)
+                    .noneMatch(level -> level.equals(notification.level()))) {
+
+                throw new BadRequest("Unknown notification level.");
+            }
+
+            if (Streams.of(NotificationType.values())
+                    .map(Enum::name)
+                    .noneMatch(type -> type.equals(notification.type()))) {
+
+                throw new BadRequest("Unknown notification type.");
+            }
+
+            if(notification.recipients() != null && !notification.recipients().isEmpty()) {
+
+                for(ContactService.ContactDTO contactDTO : notification.recipients()) {
+
+                    if(contactDTO == null || contactDTO.id() == null) {
+                        throw new BadRequest("Recipients must have contact information.");
+                    }
+
+                    Contact contact = contactRepository.findByIdAndCoop(coop, contactDTO.id());
+                    if(contact == null) {
+                        throw new BadRequest("Contact not found.");
+                    }
+
+                }
+            }
+        }
+    }
 
     private void verifyActions(RuleDTO rule) {
 
@@ -461,7 +617,8 @@ public class RuleService {
                 rule.getStatus().name(),
                 rule.getComponentTriggers().stream().map(RuleService::toDTO).toList(),
                 rule.getScheduleTriggers().stream().map(RuleService::toDTO).toList(),
-                rule.getActions().stream().map(RuleService::toDTO).toList()
+                rule.getActions().stream().map(RuleService::toDTO).toList(),
+                rule.getNotifications().stream().map(RuleService::toDTO).toList()
         );
     }
 
@@ -520,6 +677,23 @@ public class RuleService {
         );
     }
 
+    private static RuleNotificationRecipientDTO toDTO(RuleNotificationRecipient recipient) {
+        return new RuleNotificationRecipientDTO(
+                ContactService.toDTO(recipient.getContact())
+        );
+    }
+
+    private static RuleNotificationDTO toDTO(RuleNotification notification) {
+        return new RuleNotificationDTO(
+                notification.getId(),
+                notification.getType().name(),
+                notification.getLevel().name(),
+                notification.getChannel().name(),
+                notification.getMessage(),
+                notification.getRecipients().stream().map(RuleNotificationRecipient::getContact).map(ContactService::toDTO).toList()
+        );
+    }
+
     public record ListRulesResponse(List<RuleDTO> rules){};
     public record CreateRuleRequest(String coopId, RuleDTO rule){};
     public record CreateRuleResponse(RuleDTO rule){};
@@ -535,8 +709,11 @@ public class RuleService {
     public record RuleActionDTO(String id, RuleComponentDTO component, String actionKey, Map<String, String> params){};
     public record ScheduleTriggerDTO(String id, String frequency, int hour, int minute, int gap){};
     public record ComponentTriggerDTO(String id, RuleComponentDTO component, String signal, double threshold, String operator){};
-    public record RuleDTO(String id, String name, String status, List<ComponentTriggerDTO> componentTriggers, List<ScheduleTriggerDTO> scheduleTriggers, List<RuleActionDTO> actions){};
+    public record RuleDTO(String id, String name, String status, List<ComponentTriggerDTO> componentTriggers, List<ScheduleTriggerDTO> scheduleTriggers, List<RuleActionDTO> actions, List<RuleNotificationDTO> notifications){};
     public record ActuatorActionDTO(String key, String[] params){}
     public record ActuatorDTO(List<ActuatorActionDTO> actions){}
+
+    public record RuleNotificationDTO(String id, String type, String level, String channel, String message, List<ContactService.ContactDTO> recipients){}
+    public record RuleNotificationRecipientDTO(ContactService.ContactDTO contact){};
 
 }

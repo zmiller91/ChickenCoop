@@ -41,6 +41,8 @@ public class LocalWebConfig implements WebServerFactoryCustomizer<ConfigurableSe
         return new PiContext(path);
     }
 
+    //TODO: This is only used in the DatabaseStateProvider. It should be removed or something else should be done
+    //      with it because it's not really appropriate.
     @Bean
     @Qualifier("coop_id")
     public String coopId(@Value("${coop.id}") String coopId) {
@@ -79,7 +81,7 @@ public class LocalWebConfig implements WebServerFactoryCustomizer<ConfigurableSe
      */
     @Bean
     @Primary
-    public StateProvider stateProvider(MqttStateProvider localStateProvider) {
+    public StateProvider stateProvider(DatabaseStateProvider localStateProvider) {
         return localStateProvider;
     }
 

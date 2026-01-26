@@ -41,6 +41,9 @@ public class Rule implements AuthorizerScopedTable {
     @OneToMany(mappedBy = "rule", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<RuleAction> actions = new ArrayList<>();
 
+    @OneToMany(mappedBy = "rule", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<RuleNotification> notifications = new ArrayList<>();
+
     @Override
     public User getUser() {
         return coop.getUser();
@@ -70,6 +73,7 @@ public class Rule implements AuthorizerScopedTable {
         componentTriggers.remove(t);
         t.setRule(null);
     }
+
     public void addAction(RuleAction a) {
         actions.add(a);
         a.setRule(this);
@@ -78,5 +82,15 @@ public class Rule implements AuthorizerScopedTable {
     public void removeAction(RuleAction a) {
         actions.remove(a);
         a.setRule(null);
+    }
+
+    public void addNotification(RuleNotification n) {
+        notifications.add(n);
+        n.setRule(this);
+    }
+
+    public void removeNotification(RuleNotification n) {
+        notifications.remove(n);
+        n.setRule(null);
     }
 }
