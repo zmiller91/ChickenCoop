@@ -3,8 +3,6 @@ os: linux
 files:
   - source: target/ChickenCoop-1.0-SNAPSHOT.jar
     destination: /home/ec2-user/coop
-  - source: sql/
-    destination: /home/ec2-user/coop/sql
   - source: scripts/aws/bootstrap.sh
     destination: /home/ec2-user/coop
   - source: scripts/aws/start.sh
