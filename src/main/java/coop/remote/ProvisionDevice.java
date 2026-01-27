@@ -125,7 +125,7 @@
 //                "      \"Action\": [\n" +
 //                "        \"iot:Publish\"\n" +
 //                "      ],\n" +
-//                "      \"Resource\": \"arn:aws:iot:us-east-1:547228847576:topic/datatopic\"\n" +
+//                "      \"Resource\": \"arn:aws:iot:us-east-1:547228847576:topic/hub_event\"\n" +
 //                "    },\n" +
 //                "    {\n" +
 //                "      \"Effect\": \"Allow\",\n" +

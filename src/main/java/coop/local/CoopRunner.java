@@ -73,7 +73,7 @@ public class CoopRunner extends PiRunner {
         DownlinkDispatcher downlinkDispatcher = new DownlinkDispatcher(communication);
         Scheduler scheduler = new Scheduler(provider, jobRepository, downlinkDispatcher);
         MetricProcessor metricProcessor = new MetricProcessor(metricCache, provider);
-        RuleProcessor ruleProcessor = new RuleProcessor(metricCache, scheduler);
+        RuleProcessor ruleProcessor = new RuleProcessor(metricCache, scheduler, provider);
 
         EventProcessor.addListeners(
                 downlinkDispatcher,

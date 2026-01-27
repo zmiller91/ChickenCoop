@@ -1,6 +1,7 @@
 package coop.shared.database.table.rule;
 
 import coop.shared.database.table.Contact;
+import coop.shared.database.table.Severity;
 import lombok.Getter;
 import lombok.Setter;
 import org.hibernate.annotations.GenericGenerator;
@@ -31,7 +32,7 @@ public class RuleNotification {
 
     @Enumerated(EnumType.STRING)
     @Column(name = "NOTIFICATION_LEVEL", length = 16, nullable = false)
-    private NotificationLevel level;
+    private Severity level;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "NOTIFICATION_CHANNEL", length = 16, nullable = false)

@@ -60,7 +60,4 @@ public class InboxMessageRepository extends AuthorizerScopedRepository<InboxMess
                 .setParameter("coop", coop)
                 .uniqueResult();
     }
-
-
-
 }

@@ -4,17 +4,15 @@ import coop.shared.database.repository.CoopRepository;
 import coop.shared.database.repository.InboxMessageRepository;
 import coop.shared.database.table.Coop;
 import coop.shared.database.table.inbox.InboxMessage;
-import coop.shared.database.table.inbox.InboxSeverity;
+import coop.shared.database.table.Severity;
 import coop.shared.exception.NotFound;
 import coop.shared.security.AuthContext;
 import org.apache.commons.lang3.ObjectUtils;
-import org.hibernate.annotations.GenericGenerator;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.EnableTransactionManagement;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
-import javax.persistence.*;
 import java.time.Instant;
 import java.util.List;
 
@@ -112,7 +110,7 @@ public class InboxService {
 
     public record ListInboxResponse(int page, List<InboxMessageDTO> messages){}
     public record InboxMessageDTO(String id,
-                                  InboxSeverity severity,
+                                  Severity severity,
                                   Instant createdTs,
                                   Instant readTs,
                                   Instant archivedTs,

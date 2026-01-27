@@ -6,7 +6,7 @@ import coop.local.database.metric.MetricCacheEntry;
 import coop.local.database.metric.MetricCacheRepository;
 import coop.local.listener.EventListener;
 import coop.local.state.LocalStateProvider;
-import coop.shared.pi.metric.Metric;
+import coop.shared.pi.events.MetricReceived;
 
 import java.util.List;
 
@@ -34,7 +34,7 @@ public class MetricProcessor implements EventListener {
 
     private void processMetricEvent(EventPayload message, MetricEvent event) {
 
-        Metric metric = new Metric();
+        MetricReceived metric = new MetricReceived();
         metric.setDt(System.currentTimeMillis());
         metric.setCoopId(message.getCoop().getCoopId());
         metric.setComponentId(message.getComponent().getComponentId());

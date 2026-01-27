@@ -11,7 +11,7 @@ import coop.shared.database.repository.MetricRepository;
 import coop.shared.database.repository.PiRepository;
 import coop.shared.database.table.Coop;
 import coop.shared.database.table.Pi;
-import coop.shared.pi.metric.Metric;
+import coop.shared.pi.events.MetricReceived;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -59,7 +59,7 @@ public class ProcessData {
 
     private void process(List<Message> messages) {
         messages.forEach(message -> {
-            Metric metric = GSON.fromJson(message.getBody(), Metric.class);
+            MetricReceived metric = GSON.fromJson(message.getBody(), MetricReceived.class);
 
             //TODO: We should probably get this from the principal, since that's derived from the certificates.
             Pi pi = piRepository.findByClientId(metric.getClientId());

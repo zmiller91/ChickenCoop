@@ -23,4 +23,14 @@ public class RuleRepository extends AuthorizerScopedRepository<Rule> {
                 .setParameter("coop", coop)
                 .list();
     }
+
+    public Rule findByCoopAndId(Coop coop, String id) {
+        return this.query("FROM Rule WHERE coop = :coop AND id = :id", Rule.class)
+                .setParameter("coop", coop)
+                .setParameter("id", id)
+                .list()
+                .stream()
+                .findFirst()
+                .orElse(null);
+    }
 }

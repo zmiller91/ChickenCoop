@@ -5,7 +5,10 @@ import coop.shared.database.repository.*;
 import coop.shared.database.table.Coop;
 import coop.shared.database.table.Pi;
 import coop.shared.pi.StateFactory;
-import coop.shared.pi.metric.Metric;
+import coop.shared.pi.events.HubEvent;
+import coop.shared.pi.events.MetricReceived;
+import coop.shared.pi.events.RuleSatisfiedHubEvent;
+import coop.shared.projection.InboxMessageProjection;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Component;
@@ -21,13 +24,13 @@ public class DatabaseStateProvider extends LocalStateProvider {
     private MetricRepository metricRepository;
 
     @Autowired
+    private InboxMessageRepository inboxRepository;
+
+    @Autowired
+    private RuleRepository ruleRepository;
+
+    @Autowired
     private CoopRepository coopRepository;
-
-    @Autowired
-    private ComponentRepository componentRepository;
-
-    @Autowired
-    private ComponentSerialRepository componentSerialRepository;
 
     @Autowired
     private PiRepository piRepository;
@@ -59,7 +62,25 @@ public class DatabaseStateProvider extends LocalStateProvider {
     }
 
     @Override
-    public void save(Metric metric) {
+    public void save(HubEvent event) {
+        if(event instanceof MetricReceived metric) {
+            saveMetric(metric);
+        }
+
+        if(event instanceof RuleSatisfiedHubEvent ruleExecution) {
+            saveRuleExecution(ruleExecution);
+        }
+    }
+
+    private void saveRuleExecution(RuleSatisfiedHubEvent ruleExecution) {
+        Pi pi = piRepository.findById(piContext.piId());
+        InboxMessageProjection projection = new InboxMessageProjection(coopRepository, ruleRepository);
+        projection.from(pi, ruleExecution).forEach(message -> {
+            inboxRepository.persist(message);
+        });
+    }
+
+    private void saveMetric(MetricReceived metric) {
         metricRepository.save(
                 coop(),
                 metric.getComponentId(),

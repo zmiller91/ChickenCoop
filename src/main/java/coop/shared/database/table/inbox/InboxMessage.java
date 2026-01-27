@@ -1,9 +1,6 @@
 package coop.shared.database.table.inbox;
 
-import coop.shared.database.table.AuthorizerScopedTable;
-import coop.shared.database.table.Coop;
-import coop.shared.database.table.Pi;
-import coop.shared.database.table.User;
+import coop.shared.database.table.*;
 import lombok.Data;
 import org.hibernate.annotations.GenericGenerator;
 
@@ -33,7 +30,7 @@ public class InboxMessage implements AuthorizerScopedTable {
 
     @Enumerated(EnumType.STRING)
     @Column(name = "SEVERITY", length = 16, nullable = false)
-    private InboxSeverity severity;
+    private Severity severity;
 
     @Column(name = "CREATED_TS", nullable = false, updatable = false)
     private Instant createdTs;

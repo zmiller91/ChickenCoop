@@ -4,7 +4,7 @@ import coop.local.mqtt.*;
 import coop.shared.pi.config.CoopState;
 import coop.shared.pi.config.IotShadowRequest;
 import coop.shared.pi.config.IotState;
-import coop.shared.pi.metric.Metric;
+import coop.shared.pi.events.HubEvent;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
@@ -40,11 +40,11 @@ public class MqttStateProvider extends LocalStateProvider {
     /**
      * Sends a ShadowTopic.METRIC message to the remote server via MQTT.
      *
-     * @param metric to send
+     * @param event to send
      */
     @Override
-    public void save(Metric metric) {
-        PiMqttMessage mqttMessage = new PiMqttMessage(ShadowTopic.METRIC.topic(), metric);
+    public void save(HubEvent event) {
+        PiMqttMessage mqttMessage = new HubEventMessage(event);
         client().publish(mqttMessage);
     }
 

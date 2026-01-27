@@ -11,6 +11,7 @@ import coop.shared.database.repository.CoopRepository;
 import coop.shared.database.repository.RuleRepository;
 import coop.shared.database.table.Contact;
 import coop.shared.database.table.Coop;
+import coop.shared.database.table.Severity;
 import coop.shared.database.table.Status;
 import coop.shared.database.table.component.Component;
 import coop.shared.database.table.rule.*;
@@ -349,7 +350,7 @@ public class RuleService {
             }
 
             notification.setType(NotificationType.valueOf(dto.type));
-            notification.setLevel(NotificationLevel.valueOf(dto.level));
+            notification.setLevel(Severity.valueOf(dto.level));
             notification.setMessage(dto.message);
 
         }
@@ -364,7 +365,7 @@ public class RuleService {
 
                     RuleNotification notification = new RuleNotification();
                     notification.setType(NotificationType.valueOf(dto.type));
-                    notification.setLevel(NotificationLevel.valueOf(dto.level));
+                    notification.setLevel(Severity.valueOf(dto.level));
                     notification.setChannel(NotificationChannel.valueOf(dto.channel));
                     notification.setRule(rule);
                     notification.setMessage(dto.message);
@@ -454,7 +455,8 @@ public class RuleService {
 
             RuleNotification notification = new RuleNotification();
             notification.setType(NotificationType.valueOf(dto.type));
-            notification.setLevel(NotificationLevel.valueOf(dto.level));
+            notification.setLevel(Severity.valueOf(dto.level));
+            notification.setChannel(NotificationChannel.valueOf(dto.channel));
             notification.setRule(rule);
             notification.setMessage(dto.message);
 
@@ -512,7 +514,7 @@ public class RuleService {
                 throw new BadRequest("Unknown notification channel.");
             }
 
-            if (Streams.of(NotificationLevel.values())
+            if (Streams.of(Severity.values())
                     .map(Enum::name)
                     .noneMatch(level -> level.equals(notification.level()))) {
 
@@ -547,7 +549,7 @@ public class RuleService {
     private void verifyActions(RuleDTO rule) {
 
         List<RuleActionDTO> actions = rule.actions();
-        if(actions == null || actions.isEmpty()) {
+        if(actions == null) {
             throw new BadRequest("Action must exist.");
         }
 

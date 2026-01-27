@@ -2,11 +2,8 @@ package coop.local.state;
 
 import coop.shared.pi.StateProvider;
 import coop.shared.pi.config.CoopState;
-import coop.shared.pi.metric.Metric;
+import coop.shared.pi.events.HubEvent;
 import lombok.Getter;
-import org.springframework.stereotype.Component;
-import org.springframework.transaction.annotation.EnableTransactionManagement;
-import org.springframework.transaction.annotation.Transactional;
 
 @Getter
 public abstract class LocalStateProvider extends StateProvider {
@@ -15,7 +12,7 @@ public abstract class LocalStateProvider extends StateProvider {
 
     public abstract void init();
     public abstract void refreshState();
-    public abstract void save(Metric metric);
+    public abstract void save(HubEvent event);
 
     @Override
     public void put(CoopState coopState) {
