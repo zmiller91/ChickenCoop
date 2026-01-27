@@ -1,0 +1,23 @@
+CREATE TABLE IF NOT EXISTS inbox_message (
+    INBOX_MESSAGE_ID     VARCHAR(32) NOT NULL,
+    COOP_ID              VARCHAR(32) NOT NULL,
+    SEVERITY             VARCHAR(16) NOT NULL,
+
+    CREATED_TS           TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+    READ_TS              TIMESTAMP(6) NULL,
+    ARCHIVED_TS          TIMESTAMP(6) NULL,
+    DELETED_TS           TIMESTAMP(6) NULL,
+
+    SUBJECT              VARCHAR(255) NOT NULL,
+    BODY_TEXT            TEXT NULL,
+    BODY_HTML            MEDIUMTEXT NULL,
+
+    PRIMARY KEY (INBOX_MESSAGE_ID),
+
+    KEY idx_msg_coop_created (COOP_ID, CREATED_TS),
+    KEY idx_message_unread_count (COOP_ID, READ_TS, ARCHIVED_TS, DELETED_TS),
+
+    CONSTRAINT fk_msg_coop
+    FOREIGN KEY (COOP_ID) REFERENCES coops(COOP_ID)
+    ON DELETE CASCADE
+    );
