@@ -28,7 +28,6 @@ public class Scheduler implements EventListener, Invokable {
     private final ResourceManager resourceManager;
 
     private final Set<String> dedupeKeys = new HashSet<>();
-    private final CircularBuffer<Job> buffer = new CircularBuffer<>();
     private long nextPurge = 0;
 
     public Scheduler(LocalStateProvider stateProvider,
@@ -50,16 +49,23 @@ public class Scheduler implements EventListener, Invokable {
         //       reduce that by sending a heartbeat every 15 minutes and expiring after 30.
 
 
+        /**
+         * What is the benefit of this queue? What is it actually getting us? All we're doing is blasting events
+         * to people who aren't listening. Perhaps instead we should wait and respond to the RX event. We can continue
+         * to reserve space, but the circular queue is unnecessary.
+         */
+
+
+
         expireReservations();
         createReservations();
-        executeNextJob();
         purgeIfNecessary();
     }
 
     private void expireReservations() {
 
-        //TODO: Devices have 20 minutes to check in, otherwise they go to the back of the line
-        List<Job> expiredReservations = jobRepository.findReservedJobsOlderThan(Duration.ofMinutes(20));
+        //TODO: Devices have 30 minutes to check in, otherwise they go to the back of the line
+        List<Job> expiredReservations = jobRepository.findReservedJobsOlderThan(Duration.ofMinutes(30));
         for(Job reserved : expiredReservations) {
             reserved.setStatus(JobStatus.CREATED);
             resourceManager.stopConsuming(reserved);
@@ -72,41 +78,16 @@ public class Scheduler implements EventListener, Invokable {
                 if(reserved.isExpired()) {
                     reserved.setStatus(JobStatus.FAILED);
                     jobRepository.updateStatus(reserved);
-
-                // Otherwise add the job to the end of the queue so it can be processed again
-                } else {
-                    buffer.add(reserved);
                 }
             }
         }
     }
 
     private void createReservations() {
-        for(Job job : buffer.entries()) {
+        for(Job job : jobRepository.findCreatedJobs()) {
             if(resourceManager.tryToConsume(job)) {
                 job.setStatus(JobStatus.RESERVED);
                 jobRepository.updateStatus(job);
-                buffer.remove(job);
-            }
-        }
-    }
-
-    private void executeNextJob() {
-        Job job = buffer.next();
-        if(job != null) {
-
-            if(job.isExpired()) {
-                job.setStatus(JobStatus.FAILED);
-                jobRepository.updateStatus(job);
-                buffer.remove();
-                if(job.getDedupeKey() != null) {
-                    dedupeKeys.remove(job.getDedupeKey());
-                }
-            }
-
-            else if(resourceManager.tryToConsume(job)) {
-                buffer.remove();
-                sendToDispatcher(job);
             }
         }
     }
@@ -141,7 +122,6 @@ public class Scheduler implements EventListener, Invokable {
         // Find any jobs that have been created but not yet allocated
         List<Job> createdJobs = jobRepository.findCreatedJobs();
         for(Job job : createdJobs) {
-            buffer.add(job);
             if(job.getDedupeKey() != null) {
                 dedupeKeys.add(job.getDedupeKey());
             }
@@ -156,7 +136,7 @@ public class Scheduler implements EventListener, Invokable {
             }
         }
 
-        // Find any jobs that have been submitted for the queue and resubmit them
+        // Find any jobs that have been dispatched and resubmit them
         List<Job> jobs = jobRepository.findPendingJobs();
         for(Job job : jobs) {
             downlinkDispatcher.add(message(job));
@@ -191,9 +171,18 @@ public class Scheduler implements EventListener, Invokable {
             return;
         }
 
+        // If the job is already reserving resources, then submit it
         Job reserved = jobRepository.findReserved(payload.getComponent().getComponentId());
         if(reserved != null) {
             sendToDispatcher(reserved);
+        }
+
+        // If the job is created, check if it can consume resources and submit if so
+        Job created = jobRepository.findByStatus(payload.getComponent().getComponentId(), JobStatus.CREATED);
+        if(created != null) {
+            if(resourceManager.tryToConsume(created)) {
+                sendToDispatcher(created);
+            }
         }
     }
 
@@ -223,8 +212,6 @@ public class Scheduler implements EventListener, Invokable {
 
             if(resourceManager.tryToConsume(job)) {
                 sendToDispatcher(job);
-            } else {
-                buffer.add(job);
             }
 
             return true;

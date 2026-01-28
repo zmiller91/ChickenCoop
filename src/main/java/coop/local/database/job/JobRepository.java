@@ -147,6 +147,19 @@ public class JobRepository extends BaseRepository  {
                 .orElse(null);
     }
 
+    public Job findByStatus(String componentId, JobStatus status) {
+        return sessionFactory.getCurrentSession()
+                .createQuery("""
+                from Job j
+                where j.componentId = :componentId
+                  and j.status = :status
+            """, Job.class)
+                .setParameter("componentId", componentId)
+                .setParameter("status", status)
+                .uniqueResultOptional()
+                .orElse(null);
+    }
+
     public Job findWaitingForAck() {
         return sessionFactory.getCurrentSession()
                 .createQuery("""

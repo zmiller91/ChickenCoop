@@ -7,6 +7,7 @@ import coop.local.comms.message.MessageReceived;
 import coop.local.database.downlink.DownlinkRepository;
 import coop.local.database.job.JobRepository;
 import coop.local.database.metric.MetricCacheRepository;
+import coop.local.database.rule.RuleTriggerStateRepository;
 import coop.local.listener.EventProcessor;
 import coop.local.scheduler.DownlinkDispatcher;
 import coop.local.scheduler.Scheduler;
@@ -60,6 +61,9 @@ public class CoopRunner extends PiRunner {
     @Autowired
     private MetricCacheRepository metricCache;
 
+    @Autowired
+    private RuleTriggerStateRepository triggerStateRepository;
+
     private long lastStateRefresh = 0;
     private final List<Invokable> invokables = new ArrayList<>();
 
@@ -73,13 +77,15 @@ public class CoopRunner extends PiRunner {
         DownlinkDispatcher downlinkDispatcher = new DownlinkDispatcher(communication);
         Scheduler scheduler = new Scheduler(provider, jobRepository, downlinkDispatcher);
         MetricProcessor metricProcessor = new MetricProcessor(metricCache, provider);
-        RuleProcessor ruleProcessor = new RuleProcessor(metricCache, scheduler, provider);
+        RuleProcessor ruleProcessor = new RuleProcessor(metricCache, triggerStateRepository, scheduler, provider);
 
+        // Order matters here. The rule processor relies on metrics being created. The rule processor can create
+        // jobs that the scheduler uses.
         EventProcessor.addListeners(
-                downlinkDispatcher,
-                scheduler,
                 metricProcessor,
-                ruleProcessor);
+                ruleProcessor,
+                downlinkDispatcher,
+                scheduler);
 
         invokables.add(downlinkDispatcher);
         invokables.add(scheduler);
