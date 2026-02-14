@@ -14,6 +14,7 @@ import coop.local.database.job.JobStatus;
 import coop.local.state.LocalStateProvider;
 import coop.shared.pi.config.ComponentState;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Duration;
 import java.util.HashSet;
@@ -27,6 +28,7 @@ public class Scheduler implements EventListener, Invokable {
     private final DownlinkDispatcher downlinkDispatcher;
     private final ResourceManager resourceManager;
 
+    private boolean isInitialized = false;
     private final Set<String> dedupeKeys = new HashSet<>();
     private long nextPurge = 0;
 
@@ -37,8 +39,6 @@ public class Scheduler implements EventListener, Invokable {
         this.jobRepository = jobRepository;
         this.resourceManager = new ResourceManager(stateProvider);
         this.downlinkDispatcher = downlinkDispatcher;
-        purgeIfNecessary();
-        hydrate();
     }
 
     @Override
@@ -56,6 +56,11 @@ public class Scheduler implements EventListener, Invokable {
          */
 
 
+        if(!isInitialized) {
+            purgeIfNecessary();
+            hydrate();
+            isInitialized = true;
+        }
 
         expireReservations();
         createReservations();

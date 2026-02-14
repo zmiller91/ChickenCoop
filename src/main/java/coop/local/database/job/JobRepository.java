@@ -2,12 +2,14 @@ package coop.local.database.job;
 
 import coop.local.database.BaseRepository;
 import org.springframework.stereotype.Repository;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 
 @Repository
+@Transactional(transactionManager = "piTransactionManager")
 public class JobRepository extends BaseRepository  {
 
 

@@ -6,11 +6,16 @@ import coop.shared.pi.config.IotShadowRequest;
 import coop.shared.pi.config.IotState;
 import coop.shared.pi.events.HubEvent;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 
 import java.util.Arrays;
 
 @Component
+@ConditionalOnProperty(
+        name = "coop.state.mode",
+        havingValue = "mqtt"
+)
 public class MqttStateProvider extends LocalStateProvider {
 
     @Autowired

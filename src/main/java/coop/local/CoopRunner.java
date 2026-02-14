@@ -4,7 +4,6 @@ import coop.device.protocol.*;
 import coop.device.protocol.event.*;
 import coop.local.comms.Communication;
 import coop.local.comms.message.MessageReceived;
-import coop.local.database.downlink.DownlinkRepository;
 import coop.local.database.job.JobRepository;
 import coop.local.database.metric.MetricCacheRepository;
 import coop.local.database.rule.RuleTriggerStateRepository;
@@ -16,8 +15,6 @@ import coop.local.state.LocalStateProvider;
 import coop.shared.pi.config.CoopState;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
-import org.springframework.transaction.annotation.EnableTransactionManagement;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Duration;
 import java.util.ArrayList;

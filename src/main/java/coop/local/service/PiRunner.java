@@ -1,9 +1,7 @@
 package coop.local.service;
 
-import coop.local.mqtt.PiMqttClient;
-import coop.local.mqtt.ShadowSubscription;
+
 import lombok.extern.log4j.Log4j2;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -29,6 +27,7 @@ public abstract class PiRunner implements Runnable {
                 invoke();
             } catch (Throwable t) {
                 log.warn(t);
+                t.printStackTrace();
                 handleError(t);
             }
         }

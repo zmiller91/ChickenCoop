@@ -11,6 +11,7 @@ import coop.shared.pi.events.RuleSatisfiedHubEvent;
 import coop.shared.projection.InboxMessageProjection;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.EnableTransactionManagement;
 import org.springframework.transaction.annotation.Transactional;
@@ -18,6 +19,11 @@ import org.springframework.transaction.annotation.Transactional;
 @Transactional
 @EnableTransactionManagement
 @Component
+@ConditionalOnProperty(
+        name = "coop.state.mode",
+        havingValue = "database",
+        matchIfMissing = true
+)
 public class DatabaseStateProvider extends LocalStateProvider {
 
     @Autowired

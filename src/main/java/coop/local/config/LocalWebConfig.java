@@ -75,16 +75,6 @@ public class LocalWebConfig implements WebServerFactoryCustomizer<ConfigurableSe
         return new Communication(serial);
     }
 
-    /**
-     * Data can either be stored locally or it can be sent to AWS and stored remotely. Change this function's input
-     * parameter type to dictate which should be used.
-     */
-    @Bean
-    @Primary
-    public StateProvider stateProvider(DatabaseStateProvider localStateProvider) {
-        return localStateProvider;
-    }
-
     @Bean
     @Qualifier("PiRunnerExecutor")
     public TaskExecutor taskExecutor() {

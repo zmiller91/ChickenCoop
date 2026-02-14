@@ -104,10 +104,16 @@ public class RuleProcessor implements EventListener {
                 .toList();
 
         for(RuleState rule : applicableRules) {
-            if(isRuleSatisfied(rule)) {
-                executeRule(coop, rule, componentsById);
-            } else {
-                markInactive(rule);
+
+            try {
+                if (isRuleSatisfied(rule)) {
+                    executeRule(coop, rule, componentsById);
+                } else {
+                    markInactive(rule);
+                }
+            } catch (Throwable t) {
+                t.printStackTrace();
+                log.error("Failed to process rule " + rule.getRuleId(), t);
             }
         }
     }
@@ -115,9 +121,7 @@ public class RuleProcessor implements EventListener {
     private void markInactive(RuleState rule) {
         RuleTriggerState triggerState = triggerStateRepository.findByRuleId(rule.getRuleId());
         if(triggerState != null && ACTIVE.equals(triggerState.getTriggerState())) {
-            triggerState.setTriggerState(INACTIVE);
-            triggerState.setTriggerStateDt(System.currentTimeMillis());
-            triggerStateRepository.persist(triggerState);
+            triggerStateRepository.upsert(rule.getRuleId(), INACTIVE);
         }
     }
 
@@ -158,11 +162,14 @@ public class RuleProcessor implements EventListener {
         }
 
         // Set the rule trigger state to active
-        triggerState = ObjectUtils.firstNonNull(triggerState, new RuleTriggerState());
-        triggerState.setRuleId(rule.getRuleId());
-        triggerState.setTriggerState(ACTIVE);
-        triggerState.setTriggerStateDt(now);
-        triggerStateRepository.persist(triggerState);
+        log.info("Is trigger state null? " + triggerState == null);
+        if(triggerState != null) {
+            log.info("Trigger state rule id: " + triggerState.getRuleId());
+            log.info("Rule id: " + rule.getRuleId());
+            log.info("Is attached? " + triggerStateRepository.isAttached(triggerState));
+        }
+
+        triggerStateRepository.upsert(rule.getRuleId(), ACTIVE);
 
         // Emit an event to notify the user that the rule was executed
         RuleSatisfiedHubEvent event = new RuleSatisfiedHubEvent();

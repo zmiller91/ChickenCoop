@@ -2,10 +2,12 @@ package coop.local.database.metric;
 
 import coop.local.database.BaseRepository;
 import org.springframework.stereotype.Repository;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Duration;
 
 @Repository
+@Transactional(transactionManager = "piTransactionManager")
 public class MetricCacheRepository extends BaseRepository {
 
     public MetricCacheEntry findRecent(String componentId, String metric, Duration ageLimit) {

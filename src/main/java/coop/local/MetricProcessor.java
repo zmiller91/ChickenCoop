@@ -7,6 +7,7 @@ import coop.local.database.metric.MetricCacheRepository;
 import coop.local.listener.EventListener;
 import coop.local.state.LocalStateProvider;
 import coop.shared.pi.events.MetricReceived;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 

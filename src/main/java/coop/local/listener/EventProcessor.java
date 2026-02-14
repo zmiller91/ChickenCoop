@@ -8,6 +8,7 @@ import coop.local.EventPayload;
 import coop.local.comms.message.MessageReceived;
 import coop.shared.pi.config.ComponentState;
 import coop.shared.pi.config.CoopState;
+import lombok.extern.log4j.Log4j2;
 
 import java.util.*;
 
@@ -16,6 +17,7 @@ import java.util.*;
  * Because the main execution method (recieveMessage) requires a CoopState, it needs to be called from another
  * listener that hooks off the Communication's MessageReceived listener.
  */
+@Log4j2
 public class EventProcessor {
 
     private static final Map<Class<? extends Event>, List<EventListener>> LISTENERS = new HashMap<>();
@@ -68,7 +70,13 @@ public class EventProcessor {
             List<EventListener> listeners = LISTENERS.get(eventClass);
             if(listeners != null) {
                 EventPayload payload = new EventPayload(event, coop, component);
-                listeners.forEach((l) -> l.receive(payload));
+                listeners.forEach((l) -> {
+                    try {
+                        l.receive(payload);
+                    } catch (Throwable t) {
+                        log.error("Failed to execute listener " + l.getClass().getName(), t);
+                    }
+                });
             }
         }
     }
