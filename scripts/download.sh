@@ -18,7 +18,7 @@ INSTALLED=$(cat ~/pi-build/installed.txt)
 TARGET=$(git rev-parse HEAD)
 if [ "$INSTALLED" != "$TARGET" ]; then
 	echo "Build out of date. Updating."
-	sudo mvn install spring-boot:repackage
+  sudo mvn -Plocal clean package
 	cp target/ChickenCoop-1.0-SNAPSHOT.jar ~/pi-build/
 	echo $TARGET > ~/pi-build/installed.txt
 	echo "Updated to ${TARGET}"

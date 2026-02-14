@@ -8,6 +8,10 @@
   <url>http://maven.apache.org</url>
   <packaging>jar</packaging>
 
+  <properties>
+    <start-class>coop.remote.Main</start-class>
+  </properties>
+
   <parent>
     <groupId>org.springframework.boot</groupId>
     <artifactId>spring-boot-starter-parent</artifactId>
@@ -189,12 +193,13 @@
   </dependencies>
 
   <build>
+
     <plugins>
       <plugin>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-maven-plugin</artifactId>
         <configuration>
-          <mainClass>coop.remote.Main</mainClass>
+          <mainClass>${start-class}</mainClass>
         </configuration>
         <executions>
           <execution>
@@ -206,6 +211,21 @@
       </plugin>
     </plugins>
   </build>
+
+  <profiles>
+    <profile>
+      <id>local</id>
+      <properties>
+        <start-class>coop.local.Main</start-class>
+      </properties>
+    </profile>
+    <profile>
+      <id>remote</id>
+      <properties>
+        <start-class>coop.remote.Main</start-class>
+      </properties>
+    </profile>
+  </profiles>
 
 
 </project>
