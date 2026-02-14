@@ -1,4 +1,3 @@
-USE PI_STATE;
 
 CREATE TABLE IF NOT EXISTS rule_trigger_state (
 
