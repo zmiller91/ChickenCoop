@@ -95,11 +95,7 @@ public class PiMqttClient implements MqttClientConnectionEvents {
 
             CompletableFuture<Boolean> connected = connection.connect();
             boolean isResumedSession = connected.get();
-            if (!isResumedSession) {
-                return subscribe();
-            }
-
-            return true;
+            return subscribe();
 
         } catch (Exception e) {
             log.info("Error connecting to MQTT. Will retry later.");
