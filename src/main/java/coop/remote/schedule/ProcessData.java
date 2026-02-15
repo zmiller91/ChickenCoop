@@ -88,7 +88,7 @@ public class ProcessData {
                 switch(iotMessage.getEvent().getType()) {
                     case METRIC:
 
-                        MetricReceived metric = (MetricReceived) iotMessage.getEvent().getPayload();
+                        MetricReceived metric = GSON.fromJson(iotMessage.getEvent().getPayload(), MetricReceived.class);
                         Coop coop = coopRepository.findById(pi, metric.getCoopId());
                         if(coop != null) {
                             metricRepository.save(
@@ -102,7 +102,7 @@ public class ProcessData {
                         break;
 
                     case RULE_SATISFIED:
-                        saveRuleExecution(pi, (RuleSatisfiedHubEvent) iotMessage.getEvent().getPayload());
+                        saveRuleExecution(pi, GSON.fromJson(iotMessage.getEvent().getPayload(), RuleSatisfiedHubEvent.class));
                         break;
                 }
             }

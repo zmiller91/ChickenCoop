@@ -1,5 +1,6 @@
 package coop.shared.pi.events;
 
+import com.google.gson.JsonElement;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 
@@ -7,5 +8,5 @@ import lombok.Data;
 @AllArgsConstructor
 public class HubEventPayload {
     private HubEventType type;
-    private Object payload;
+    private JsonElement payload;
 }
