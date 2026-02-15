@@ -10,4 +10,9 @@ import java.util.Map;
 public class RuleSatisfiedHubEvent extends HubEvent {
     private String ruleId;
     private Map<String, String> context;
+
+    @Override
+    public HubEventType getType() {
+        return HubEventType.RULE_SATISFIED;
+    }
 }
