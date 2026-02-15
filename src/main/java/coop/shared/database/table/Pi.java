@@ -20,4 +20,7 @@ public class Pi {
 
     @Column(name = "CLIENT_ID")
     private String clientId;
+
+    @Column(name = "CERT_THUMBPRINT")
+    private String thumbprint;
 }

@@ -24,4 +24,13 @@ public class PiRepository extends GenericRepository<Pi> {
                 .findFirst()
                 .orElse(null);
     }
+
+    public Pi findByThumbprint(String thumbprint) {
+        return this.query("FROM Pi WHERE thumbprint = :thumbprint", Pi.class)
+                .setParameter("thumbprint", thumbprint)
+                .list()
+                .stream()
+                .findFirst()
+                .orElse(null);
+    }
 }

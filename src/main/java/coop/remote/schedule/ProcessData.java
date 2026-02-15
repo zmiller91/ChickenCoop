@@ -1,8 +1,7 @@
 package coop.remote.schedule;
 
 import com.amazonaws.services.iot.AWSIot;
-import com.amazonaws.services.iot.model.ListPrincipalThingsRequest;
-import com.amazonaws.services.iot.model.ListPrincipalThingsResult;
+import com.amazonaws.services.iot.model.*;
 import com.amazonaws.services.sqs.AmazonSQS;
 import com.amazonaws.services.sqs.model.DeleteMessageRequest;
 import com.amazonaws.services.sqs.model.Message;
@@ -23,6 +22,7 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
@@ -77,45 +77,33 @@ public class ProcessData {
         for(Message message : messages) {
 
             IoTMessage iotMessage = GSON.fromJson(message.getBody(), IoTMessage.class);
+            Pi pi = piRepository.findByThumbprint(iotMessage.getPrincipal());
 
-            ListPrincipalThingsRequest request = new ListPrincipalThingsRequest();
-            request.setPrincipal(iotMessage.getPrincipal());
-            ListPrincipalThingsResult result = iot.listPrincipalThings(request);
-
-            if(result.getThings() == null || result.getThings().isEmpty()) {
-                log.warn("Could not find thing for principal: " + iotMessage.getPrincipal());
-            }
-
-            else if(result.getThings().size() > 1) {
-                log.error("Multiple things found for principal: " + iotMessage.getPrincipal());
+            if(pi == null) {
+                log.warn("Could not find pi for thumbprint: " + iotMessage.getPrincipal());
             }
 
             else {
 
-                String thingName = result.getThings().get(0);
-                Pi pi = piRepository.findById(thingName);
-                if (pi != null) {
+                switch(iotMessage.getEvent().getType()) {
+                    case METRIC:
 
-                    switch(iotMessage.getEvent().getType()) {
-                        case METRIC:
+                        MetricReceived metric = (MetricReceived) iotMessage.getEvent().getPayload();
+                        Coop coop = coopRepository.findById(pi, metric.getCoopId());
+                        if(coop != null) {
+                            metricRepository.save(
+                                    coop,
+                                    metric.getComponentId(),
+                                    metric.getDt(),
+                                    metric.getMetric(),
+                                    metric.getValue());
+                        }
 
-                            MetricReceived metric = (MetricReceived) iotMessage.getEvent().getPayload();
-                            Coop coop = coopRepository.findById(pi, metric.getCoopId());
-                            if(coop != null) {
-                                metricRepository.save(
-                                        coop,
-                                        metric.getComponentId(),
-                                        metric.getDt(),
-                                        metric.getMetric(),
-                                        metric.getValue());
-                            }
+                        break;
 
-                            break;
-
-                        case RULE_SATISFIED:
-                            saveRuleExecution(pi, (RuleSatisfiedHubEvent) iotMessage.getEvent().getPayload());
-                            break;
-                    }
+                    case RULE_SATISFIED:
+                        saveRuleExecution(pi, (RuleSatisfiedHubEvent) iotMessage.getEvent().getPayload());
+                        break;
                 }
             }
 
