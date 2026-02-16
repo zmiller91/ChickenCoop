@@ -145,6 +145,10 @@ public class RuleService {
         }
 
         ruleRepository.delete(rule);
+        ruleRepository.flush();
+
+        CoopState state = stateFactory.forCoop(coop);
+        stateProvider.put(state);
     }
 
     @PutMapping("{coopId}/{ruleId}")
@@ -189,6 +193,10 @@ public class RuleService {
         updateNotificationsInUpdate(rule, request);
 
         ruleRepository.persist(rule);
+        ruleRepository.flush();
+
+        CoopState state = stateFactory.forCoop(coop);
+        stateProvider.put(state);
     }
 
     private void updateComponentTriggersInUpdate(Rule rule, UpdateRuleRequest request) {
