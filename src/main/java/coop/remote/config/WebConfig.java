@@ -1,6 +1,5 @@
 package coop.remote.config;
 
-import com.amazonaws.regions.Region;
 import com.amazonaws.regions.Regions;
 import com.amazonaws.services.iot.AWSIot;
 import com.amazonaws.services.iot.AWSIotClient;
@@ -10,6 +9,8 @@ import com.amazonaws.services.sqs.AmazonSQS;
 import com.amazonaws.services.sqs.AmazonSQSClientBuilder;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import software.amazon.awssdk.regions.Region;
+import software.amazon.awssdk.services.ses.SesClient;
 
 
 @Configuration
@@ -30,6 +31,13 @@ public class WebConfig {
     @Bean
     public AmazonSQS awsSqs() {
         return AmazonSQSClientBuilder.defaultClient();
+    }
+
+    @Bean
+    public SesClient ses() {
+        return SesClient.builder()
+                .region(Region.US_EAST_1)
+                .build();
     }
 
     @Bean(name = "metricSqsUrl")
