@@ -59,7 +59,7 @@ public class EmailMessageProjection {
                 }
 
                 SendEmailRequest req = SendEmailRequest.builder()
-                        .source("alerts@gnmoelyhq.com")
+                        .source("alerts@gnomelyhq.com")
                         .destination(Destination.builder().toAddresses(recipient.getContact().getEmail()).build())
                         .message(Message.builder()
                                 .subject(Content.builder().data(String.format("Automation: %s", rule.getName())).charset("UTF-8").build())
