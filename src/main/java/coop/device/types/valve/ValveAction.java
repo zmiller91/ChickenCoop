@@ -10,7 +10,7 @@ import java.util.Arrays;
 public enum ValveAction {
 
     TURN_ON(new TurnOnCommand("1007"), "duration"),
-    TURN_OFF(new TurnOnCommand("1007"));
+    TURN_OFF(new TurnOffCommand("1008"));
 
     private final Action action;
     private final Command command;
@@ -24,3 +24,4 @@ public enum ValveAction {
     }
 
 }
+

@@ -75,6 +75,7 @@ public class CoopRunner extends PiRunner {
         Scheduler scheduler = new Scheduler(provider, jobRepository, downlinkDispatcher);
         MetricProcessor metricProcessor = new MetricProcessor(metricCache, provider);
         RuleProcessor ruleProcessor = new RuleProcessor(metricCache, triggerStateRepository, scheduler, provider);
+        ManualRequestProcessor manualRequestProcessor = new ManualRequestProcessor(provider, scheduler);
 
         // Order matters here. The rule processor relies on metrics being created. The rule processor can create
         // jobs that the scheduler uses.
@@ -82,7 +83,8 @@ public class CoopRunner extends PiRunner {
                 metricProcessor,
                 ruleProcessor,
                 downlinkDispatcher,
-                scheduler);
+                scheduler,
+                manualRequestProcessor);
 
         invokables.add(downlinkDispatcher);
         invokables.add(scheduler);

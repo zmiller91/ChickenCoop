@@ -20,6 +20,7 @@ public class TurnOnCommand implements Command {
     public DownlinkFrame getCommand(String serialNumber, Map<String, String> params) {
         DownlinkFrame command = new DownlinkFrame(serialNumber, opcode, String.valueOf(params.get("duration")));
         command.setRequiresAck(true);
+        command.setRequiresResources(true);
         return command;
     }
 

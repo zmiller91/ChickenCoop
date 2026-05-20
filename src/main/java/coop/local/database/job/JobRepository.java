@@ -162,6 +162,28 @@ public class JobRepository extends BaseRepository  {
                 .orElse(null);
     }
 
+    public List<Job> findByStatus(JobStatus status) {
+        return sessionFactory.getCurrentSession()
+                .createQuery("""
+                from Job j
+                where j.status = :status
+            """, Job.class)
+                .setParameter("status", status)
+                .list();
+    }
+
+    public List<Job> findUnfinished(String componentId) {
+        return sessionFactory.getCurrentSession()
+                .createQuery("""
+                from Job j
+                where j.componentId = :componentId
+                  and j.rank < :rank
+            """, Job.class)
+                .setParameter("componentId", componentId)
+                .setParameter("rank", JobStatus.COMPLETE.rank())
+                .list();
+    }
+
     public Job findWaitingForAck() {
         return sessionFactory.getCurrentSession()
                 .createQuery("""

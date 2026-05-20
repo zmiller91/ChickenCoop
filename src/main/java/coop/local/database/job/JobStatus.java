@@ -7,7 +7,8 @@ public enum JobStatus {
     WAITING_FOR_ACK(4000),
     WAITING_FOR_COMPLETE(5000),
     COMPLETE(9000),
-    FAILED(9000);
+    FAILED(9000),
+    CANCELLED(9000);
 
     private final int rank;
     JobStatus(int rank) {

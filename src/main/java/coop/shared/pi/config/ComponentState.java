@@ -12,4 +12,8 @@ public class ComponentState {
     private DeviceType deviceType;
     private Map<String, String> config;
     private String groupId;
+
+    public boolean isAlwaysOn() {
+        return config != null && config.containsKey("always_on") && "true".equalsIgnoreCase(config.get("always_on"));
+    }
 }

@@ -12,13 +12,16 @@ import coop.local.database.job.Job;
 import coop.local.database.job.JobRepository;
 import coop.local.database.job.JobStatus;
 import coop.local.state.LocalStateProvider;
+import coop.shared.pi.StateProvider;
 import coop.shared.pi.config.ComponentState;
+import coop.shared.pi.config.CoopState;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Duration;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 public class Scheduler implements EventListener, Invokable {
@@ -27,6 +30,7 @@ public class Scheduler implements EventListener, Invokable {
     private final JobRepository jobRepository;
     private final DownlinkDispatcher downlinkDispatcher;
     private final ResourceManager resourceManager;
+    private final LocalStateProvider stateProvider;
 
     private boolean isInitialized = false;
     private final Set<String> dedupeKeys = new HashSet<>();
@@ -39,6 +43,7 @@ public class Scheduler implements EventListener, Invokable {
         this.jobRepository = jobRepository;
         this.resourceManager = new ResourceManager(stateProvider);
         this.downlinkDispatcher = downlinkDispatcher;
+        this.stateProvider = stateProvider;
     }
 
     @Override
@@ -64,6 +69,7 @@ public class Scheduler implements EventListener, Invokable {
 
         expireReservations();
         createReservations();
+        sendAlwaysOn();
         purgeIfNecessary();
     }
 
@@ -97,6 +103,20 @@ public class Scheduler implements EventListener, Invokable {
         }
     }
 
+    private void sendAlwaysOn() {
+        CoopState state = stateProvider.getConfig();
+        if(state != null) {
+
+            Map<String, ComponentState> componentMap = state.getComponentMap();
+            List<Job> reserved = jobRepository.findByStatus(JobStatus.RESERVED);
+            for(Job job : reserved) {
+                if(componentMap.containsKey(job.getComponentId()) && componentMap.get(job.getComponentId()).isAlwaysOn()) {
+                    sendToDispatcher(job);
+                }
+            }
+        }
+    }
+
     private void sendToDispatcher(Job job) {
         job.setStatus(JobStatus.PENDING);
         jobRepository.updateStatus(job);
@@ -116,6 +136,21 @@ public class Scheduler implements EventListener, Invokable {
 
         if(payload.getEvent() instanceof RxOpenEvent event) {
             rxOpenListener(payload, event);
+        }
+    }
+
+    public boolean hasScheduledJobs(String componentId) {
+        return !jobRepository.findUnfinished(componentId).isEmpty();
+    }
+
+    public void cancelJobs(String componentId) {
+        List<Job> jobs = jobRepository.findUnfinished(componentId);
+        for(Job job : jobs) {
+            if(job.getStatus().rank() < JobStatus.WAITING_FOR_COMPLETE.rank()) {
+                resourceManager.stopConsuming(job);
+                job.setStatus(JobStatus.CANCELLED);
+                jobRepository.updateStatus(job);
+            }
         }
     }
 
@@ -215,8 +250,9 @@ public class Scheduler implements EventListener, Invokable {
                 dedupeKeys.add(dedupeKey);
             }
 
-            if(resourceManager.tryToConsume(job)) {
-                sendToDispatcher(job);
+            if(!frame.getRequiresResources() || resourceManager.tryToConsume(job)) {
+                job.setStatus(JobStatus.RESERVED);
+                jobRepository.updateStatus(job);
             }
 
             return true;

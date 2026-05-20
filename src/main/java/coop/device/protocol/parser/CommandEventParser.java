@@ -22,6 +22,14 @@ public class CommandEventParser implements EventParser {
             return Collections.singletonList(RxOpenEvent.from(frame));
         }
 
+        if(ManualRequestEvent.isEvent(frame)) {
+            return Collections.singletonList(ManualRequestEvent.from(frame));
+        }
+
+        if(ManualOverrideEvent.isEvent(frame)) {
+            return Collections.singletonList(ManualOverrideEvent.from(frame));
+        }
+
         return List.of();
     }
 }

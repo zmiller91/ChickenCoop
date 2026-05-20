@@ -15,6 +15,7 @@ public class DownlinkFrame {
     private final String serialNumber;
     private final String[] payload;
     private  boolean requiresAck = false;
+    private boolean requiresResources = true;
 
     public DownlinkFrame(String serialNumber, String... payload) {
         this.id = RandomStringUtils.randomAlphabetic(8);
@@ -28,6 +29,14 @@ public class DownlinkFrame {
 
     public boolean getRequiresAck() {
         return requiresAck;
+    }
+
+    public void setRequiresResources(boolean required) {
+        this.requiresResources = required;
+    }
+
+    public boolean getRequiresResources() {
+        return requiresResources;
     }
 
     public String toString() {
