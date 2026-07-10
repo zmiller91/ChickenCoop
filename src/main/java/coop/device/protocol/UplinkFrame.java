@@ -1,6 +1,7 @@
 package coop.device.protocol;
 
 import com.google.common.base.Strings;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.math.NumberUtils;
 
 import java.util.Arrays;
@@ -22,7 +23,15 @@ public class UplinkFrame {
     }
 
     public boolean isValid(int payloadSize) {
-        if(payload.length != payloadSize) {
+        return isValid(payloadSize, false);
+    }
+
+    public boolean isValid(int payloadSize, boolean useMinSize) {
+
+        if(!useMinSize && payload.length != payloadSize) {
+            return false;
+
+        } else if(useMinSize && payload.length < payloadSize) {
             return false;
         }
 
@@ -32,6 +41,11 @@ public class UplinkFrame {
 
     public String getSerialNumber() {
         return serialNumber;
+    }
+
+    public String getPayloadFromIdx(int idx) {
+        String[] truncated = Arrays.copyOfRange(payload, idx, payload.length);
+        return StringUtils.join(truncated, DELIMITER);
     }
 
     public String getStringAt(int idx) {

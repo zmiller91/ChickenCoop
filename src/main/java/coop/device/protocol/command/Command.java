@@ -7,4 +7,6 @@ import java.util.Map;
 public interface Command {
     DownlinkFrame getCommand(String serialNumber, Map<String, String> params);
     boolean isValid(Map<String, String> params);
+    boolean isCommand(DownlinkFrame frame);
+    String getTarget(DownlinkFrame frame);
 }

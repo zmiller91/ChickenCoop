@@ -14,13 +14,13 @@ public class ManualOverrideEvent implements Event {
     public static ManualOverrideEvent from(UplinkFrame frame) {
         ManualOverrideEvent lclovr = new ManualOverrideEvent();
         lclovr.setSerialNumber(frame.getSerialNumber());
-        lclovr.setPayload(frame.getStringAt(2));
+        lclovr.setPayload(frame.getPayloadFromIdx(1));
         return lclovr;
     }
 
     public static boolean isEvent(UplinkFrame frame) {
         return frame != null &&
-                frame.isValid(2) &&
+                frame.isValid(2, true) &&
                 TAG.equals(frame.getStringAt(0));
     }
 }

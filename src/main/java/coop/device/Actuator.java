@@ -14,4 +14,5 @@ public interface Actuator {
     List<Action> getActions();
     DownlinkFrame manualRequest(ManualRequestEvent event, String serialNumber, Map<String, String> componentConfig);
     DownlinkFrame manualOverride(ManualOverrideEvent event, String serialNumber, Map<String, String> componentConfig);
+    boolean supersedes(DownlinkFrame firstFrame, DownlinkFrame secondFrame);
 }

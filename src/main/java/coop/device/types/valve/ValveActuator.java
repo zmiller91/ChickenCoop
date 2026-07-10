@@ -13,6 +13,7 @@ import coop.device.protocol.parser.EventParser;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Stream;
 
 public class ValveActuator implements Device, Actuator {
     @Override
@@ -60,15 +61,24 @@ public class ValveActuator implements Device, Actuator {
             return null;
         }
 
-        if(!("ON".equals(event.getPayload()) || "OFF".equals(event.getPayload()))) {
+        String[] payload = event.getPayload().split(DownlinkFrame.DELIMITER);
+        if(payload.length != 2) {
             return null;
         }
 
-        ValveAction action = "ON".equals(event.getPayload()) ? ValveAction.TURN_ON : ValveAction.TURN_OFF;
+        String requestedState = payload[1];
+        String requestedZone = payload[0];
+
+        if(!("ON".equals(requestedState) || "OFF".equals(requestedState))) {
+            return null;
+        }
+
+        ValveAction action = "ON".equals(requestedState) ? ValveAction.TURN_ON : ValveAction.TURN_OFF;
 
         return createCommand(serialNumber,
                 action.name(),
-                Map.of("duration", componentConfig.get("default_duration")));
+                Map.of("duration", componentConfig.get("default_duration"),
+                        "zone", requestedZone));
     }
 
     @Override
@@ -87,5 +97,44 @@ public class ValveActuator implements Device, Actuator {
         return createCommand(serialNumber,
                 action.name(),
                 Map.of("duration", componentConfig.get("manual_cutoff")));
+    }
+
+    /**
+     * Determines if the first frame can replace the second frame. That is, if they are the same request for the
+     * same target.
+     *
+     * @param firstFrame
+     * @param secondFrame
+     * @return
+     */
+    @Override
+    public boolean supersedes(DownlinkFrame firstFrame, DownlinkFrame secondFrame) {
+        ValveAction[] actions = ValveAction.values();
+
+        ValveAction firstAction = Stream.of(actions)
+                .filter(a -> a.getCommand().isCommand(firstFrame))
+                .findFirst()
+                .orElse(null);
+
+        ValveAction secondAction = Stream.of(actions)
+                .filter(a -> a.getCommand().isCommand(secondFrame))
+                .findFirst()
+                .orElse(null);
+
+        if(firstAction == null || secondAction == null) {
+            return false;
+        }
+
+        if(firstAction != secondAction) {
+            return false;
+        }
+
+        String firstTarget = firstAction.getCommand().getTarget(firstFrame);
+        String secondTarget = secondAction.getCommand().getTarget(secondFrame);
+        if(firstTarget == null || secondTarget == null) {
+            return false;
+        }
+
+        return firstTarget.equals(secondTarget);
     }
 }

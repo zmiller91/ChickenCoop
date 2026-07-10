@@ -147,11 +147,22 @@ public class Scheduler implements EventListener, Invokable {
         List<Job> jobs = jobRepository.findUnfinished(componentId);
         for(Job job : jobs) {
             if(job.getStatus().rank() < JobStatus.WAITING_FOR_COMPLETE.rank()) {
-                resourceManager.stopConsuming(job);
-                job.setStatus(JobStatus.CANCELLED);
-                jobRepository.updateStatus(job);
+                cancelJob(job);
             }
         }
+    }
+
+    public void cancelJob(Job job) {
+        resourceManager.stopConsuming(job);
+        job.setStatus(JobStatus.CANCELLED);
+        jobRepository.updateStatus(job);
+    }
+
+    public List<Job> getUnSubmittedJobs(String componentId) {
+        return jobRepository.findUnfinished(componentId)
+                .stream()
+                .filter(job -> job.getStatus().rank() < JobStatus.WAITING_FOR_COMPLETE.rank())
+                .toList();
     }
 
     /**

@@ -14,13 +14,13 @@ public class ManualRequestEvent implements Event {
     public static ManualRequestEvent from(UplinkFrame frame) {
         ManualRequestEvent lclreq = new ManualRequestEvent();
         lclreq.setSerialNumber(frame.getSerialNumber());
-        lclreq.setPayload(frame.getStringAt(1));
+        lclreq.setPayload(frame.getPayloadFromIdx(1));
         return lclreq;
     }
 
     public static boolean isEvent(UplinkFrame frame) {
         return frame != null &&
-                frame.isValid(2) &&
+                frame.isValid(2, true) &&
                 TAG.equals(frame.getStringAt(0));
     }
 }

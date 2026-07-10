@@ -5,6 +5,7 @@ import coop.device.protocol.DownlinkFrame;
 import coop.device.protocol.event.Event;
 import coop.device.protocol.event.ManualOverrideEvent;
 import coop.device.protocol.event.ManualRequestEvent;
+import coop.local.database.job.Job;
 import coop.local.listener.EventListener;
 import coop.local.scheduler.Scheduler;
 import coop.local.state.LocalStateProvider;
@@ -51,16 +52,23 @@ public class ManualRequestProcessor implements EventListener {
             return;
         }
 
-
         if (component.getDeviceType().getDevice() instanceof Actuator actuator) {
 
-            // First check to see if anything is queued, if it is then remove it.
-            if(scheduler.hasScheduledJobs(component.getComponentId())) {
-                scheduler.cancelJobs(component.getComponentId());
-            }
+            // Create the downlink frame from the request
+            DownlinkFrame requestedFrame = actuator.manualRequest(event, component.getSerialNumber(), component.getConfig());
+            if(requestedFrame != null) {
 
-            DownlinkFrame frame = actuator.manualRequest(event, component.getSerialNumber(), component.getConfig());
-            scheduler.create(component, frame, frame.getId());
+                // Find jobs that are queued and cancel any where the new job will supersede the existing job.
+                List<Job> jobs = scheduler.getUnSubmittedJobs(component.getComponentId());
+                for (Job job : jobs) {
+                    DownlinkFrame jobFrame = DownlinkFrame.fromString(job.getDownlink().getFrame());
+                    if (actuator.supersedes(jobFrame, requestedFrame)) {
+                        scheduler.cancelJob(job);
+                    }
+                }
+
+                scheduler.create(component, requestedFrame, requestedFrame.getId());
+            }
         }
 
         System.out.println("Manual request received.");
