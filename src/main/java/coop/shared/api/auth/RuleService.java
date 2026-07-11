@@ -175,6 +175,9 @@ public class RuleService {
             throw new BadRequest("Invalid resource.");
         }
 
+        verifyTriggerExclusivity(request.rule);
+        verifyScheduleTriggers(request.rule);
+
         rule.setName(request.rule.name);
 
         // Actions
@@ -187,6 +190,11 @@ public class RuleService {
         addComponentTriggersInUpdate(rule, request);
         updateComponentTriggersInUpdate(rule, request);
 
+        // Schedule triggers
+        deleteScheduleTriggersInUpdate(rule, request);
+        addScheduleTriggersInUpdate(rule, request);
+        updateScheduleTriggersInUpdate(rule, request);
+
         // Notifications
         deleteNotificationsInUpdate(rule, request);
         addNotificationsInUpdate(rule, request);
@@ -197,6 +205,59 @@ public class RuleService {
 
         CoopState state = stateFactory.forCoop(coop);
         stateProvider.put(state);
+    }
+
+    private void updateScheduleTriggersInUpdate(Rule rule, UpdateRuleRequest request) {
+        Map<String, ScheduledRuleTrigger> triggersById = rule.getScheduleTriggers().stream()
+                .filter(a -> !Strings.isBlank(a.getId()))
+                .collect(Collectors.toMap(ScheduledRuleTrigger::getId, Function.identity()));
+
+        for (ScheduleTriggerDTO dto : request.rule().scheduleTriggers()) {
+            if (Strings.isBlank(dto.id())) continue;
+
+            ScheduledRuleTrigger trigger = triggersById.get(dto.id());
+            if (trigger == null) {
+                throw new NotFound("Schedule trigger not found: " + dto.id());
+            }
+
+            trigger.setFrequency(ScheduleFrequency.valueOf(dto.frequency()));
+            trigger.setHour(dto.hour());
+            trigger.setMinute(dto.minute());
+            trigger.setGap(dto.gap());
+        }
+    }
+
+    private void addScheduleTriggersInUpdate(Rule rule, UpdateRuleRequest request) {
+
+        List<ScheduledRuleTrigger> newScheduleTriggers = request.rule().scheduleTriggers()
+                .stream()
+                .filter(dto -> dto.id() == null)
+                .map(dto -> {
+
+                    ScheduledRuleTrigger trigger = new ScheduledRuleTrigger();
+                    trigger.setFrequency(ScheduleFrequency.valueOf(dto.frequency()));
+                    trigger.setHour(dto.hour());
+                    trigger.setMinute(dto.minute());
+                    trigger.setGap(dto.gap());
+                    trigger.setRule(rule);
+                    return trigger;
+
+                }).toList();
+
+        rule.getScheduleTriggers().addAll(newScheduleTriggers);
+    }
+
+    private void deleteScheduleTriggersInUpdate(Rule rule, UpdateRuleRequest request) {
+        Set<String> idsInRequest = request.rule().scheduleTriggers().stream()
+                .map(ScheduleTriggerDTO::id)
+                .filter(id -> !Strings.isBlank(id))
+                .collect(Collectors.toSet());
+
+        List<ScheduledRuleTrigger> toRemove = rule.getScheduleTriggers().stream()
+                .filter(t -> !idsInRequest.contains(t.getId()))
+                .toList();
+
+        toRemove.forEach(rule::removeScheduledTrigger);
     }
 
     private void updateComponentTriggersInUpdate(Rule rule, UpdateRuleRequest request) {
@@ -419,6 +480,8 @@ public class RuleService {
         }
 
         verifyComponentTriggers(request.rule);
+        verifyScheduleTriggers(request.rule);
+        verifyTriggerExclusivity(request.rule);
         verifyActions(request.rule);
         verifyNotifications(coop, request.rule);
 
@@ -436,6 +499,18 @@ public class RuleService {
             trigger.setOperator(Operator.valueOf(dto.operator));
             trigger.setThreshold(dto.threshold);
             trigger.setMetric(dto.signal);
+            trigger.setRule(rule);
+            return trigger;
+
+        }).toList();
+
+        List<ScheduledRuleTrigger> scheduleTriggers = ObjectUtils.firstNonNull(request.rule.scheduleTriggers, Collections.<ScheduleTriggerDTO>emptyList()).stream().map(dto -> {
+
+            ScheduledRuleTrigger trigger = new ScheduledRuleTrigger();
+            trigger.setFrequency(ScheduleFrequency.valueOf(dto.frequency()));
+            trigger.setHour(dto.hour());
+            trigger.setMinute(dto.minute());
+            trigger.setGap(dto.gap());
             trigger.setRule(rule);
             return trigger;
 
@@ -488,6 +563,7 @@ public class RuleService {
 
         rule.setActions(actions);
         rule.setComponentTriggers(componentTriggers);
+        rule.setScheduleTriggers(scheduleTriggers);
         rule.setNotifications(notifications);
 
         ruleRepository.persist(rule);
@@ -605,6 +681,45 @@ public class RuleService {
             if(component == null) {
                 throw new BadRequest("Component not found for user.");
             }
+        }
+    }
+
+    private void verifyScheduleTriggers(RuleDTO rule) {
+
+        List<ScheduleTriggerDTO> scheduleTriggers = ObjectUtils.firstNonNull(rule.scheduleTriggers(), Collections.emptyList());
+        for(ScheduleTriggerDTO trigger : scheduleTriggers) {
+
+            if(StringUtils.isEmpty(trigger.frequency())) {
+                throw new BadRequest("Schedule frequency is missing.");
+            }
+
+            try {
+                ScheduleFrequency.valueOf(trigger.frequency());
+            } catch (IllegalArgumentException e) {
+                throw new BadRequest("Unknown schedule frequency.");
+            }
+
+            if(trigger.hour() < 0 || trigger.hour() > 23) {
+                throw new BadRequest("Schedule hour must be between 0 and 23.");
+            }
+
+            if(trigger.minute() < 0 || trigger.minute() > 59) {
+                throw new BadRequest("Schedule minute must be between 0 and 59.");
+            }
+
+            if(trigger.gap() < 1) {
+                throw new BadRequest("Schedule gap must be at least 1.");
+            }
+        }
+    }
+
+    private void verifyTriggerExclusivity(RuleDTO rule) {
+
+        boolean hasComponentTriggers = !ObjectUtils.firstNonNull(rule.componentTriggers(), Collections.emptyList()).isEmpty();
+        boolean hasScheduleTriggers = !ObjectUtils.firstNonNull(rule.scheduleTriggers(), Collections.emptyList()).isEmpty();
+
+        if(hasComponentTriggers && hasScheduleTriggers) {
+            throw new BadRequest("A rule can only use one trigger type: condition or schedule.");
         }
     }
     

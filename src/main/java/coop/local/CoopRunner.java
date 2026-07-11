@@ -7,6 +7,7 @@ import coop.local.comms.message.MessageReceived;
 import coop.local.database.job.JobRepository;
 import coop.local.database.metric.MetricCacheRepository;
 import coop.local.database.rule.RuleTriggerStateRepository;
+import coop.local.database.rule.ScheduleTriggerStateRepository;
 import coop.local.listener.EventProcessor;
 import coop.local.scheduler.DownlinkDispatcher;
 import coop.local.scheduler.Scheduler;
@@ -61,6 +62,9 @@ public class CoopRunner extends PiRunner {
     @Autowired
     private RuleTriggerStateRepository triggerStateRepository;
 
+    @Autowired
+    private ScheduleTriggerStateRepository scheduleTriggerStateRepository;
+
     private long lastStateRefresh = 0;
     private final List<Invokable> invokables = new ArrayList<>();
 
@@ -74,7 +78,7 @@ public class CoopRunner extends PiRunner {
         DownlinkDispatcher downlinkDispatcher = new DownlinkDispatcher(communication);
         Scheduler scheduler = new Scheduler(provider, jobRepository, downlinkDispatcher);
         MetricProcessor metricProcessor = new MetricProcessor(metricCache, provider);
-        RuleProcessor ruleProcessor = new RuleProcessor(metricCache, triggerStateRepository, scheduler, provider);
+        RuleProcessor ruleProcessor = new RuleProcessor(metricCache, triggerStateRepository, scheduleTriggerStateRepository, scheduler, provider);
         ManualRequestProcessor manualRequestProcessor = new ManualRequestProcessor(provider, scheduler);
         PortStatusProcessor portStatusProcessor = new PortStatusProcessor(provider);
 
@@ -90,6 +94,7 @@ public class CoopRunner extends PiRunner {
 
         invokables.add(downlinkDispatcher);
         invokables.add(scheduler);
+        invokables.add(ruleProcessor);
     }
 
     @Override
