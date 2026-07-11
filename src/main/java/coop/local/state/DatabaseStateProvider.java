@@ -4,10 +4,14 @@ import coop.local.PiContext;
 import coop.shared.database.repository.*;
 import coop.shared.database.table.Coop;
 import coop.shared.database.table.Pi;
+import coop.shared.database.table.component.PortActionLogEntry;
+import coop.shared.database.table.component.PortActionSource;
+import coop.shared.database.table.component.PortActionStatus;
 import coop.shared.pi.StateFactory;
 import coop.shared.pi.events.HubEvent;
 import coop.shared.pi.events.MetricReceived;
 import coop.shared.pi.events.RuleSatisfiedHubEvent;
+import coop.shared.pi.events.PortActionHubEvent;
 import coop.shared.projection.InboxMessageProjection;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -40,6 +44,12 @@ public class DatabaseStateProvider extends LocalStateProvider {
 
     @Autowired
     private PiRepository piRepository;
+
+    @Autowired
+    private ComponentRepository componentRepository;
+
+    @Autowired
+    private PortActionLogRepository portActionLogRepository;
 
     @Autowired
     private PiContext piContext;
@@ -76,6 +86,27 @@ public class DatabaseStateProvider extends LocalStateProvider {
         if(event instanceof RuleSatisfiedHubEvent ruleExecution) {
             saveRuleExecution(ruleExecution);
         }
+
+        if(event instanceof PortActionHubEvent portAction) {
+            savePortAction(portAction);
+        }
+    }
+
+    private void savePortAction(PortActionHubEvent event) {
+        Pi pi = piRepository.findById(piContext.piId());
+        coop.shared.database.table.component.Component component = componentRepository.findById(pi, event.getComponentId());
+        if(component == null) {
+            return;
+        }
+
+        PortActionLogEntry entry = new PortActionLogEntry();
+        entry.setComponent(component);
+        entry.setPortIndex(event.getPortIndex());
+        entry.setActionKey(event.getActionKey());
+        entry.setSource(event.getSource() != null ? PortActionSource.valueOf(event.getSource()) : null);
+        entry.setStatus(PortActionStatus.valueOf(event.getStatus()));
+        entry.setCreatedAt(event.getDt());
+        portActionLogRepository.persist(entry);
     }
 
     private void saveRuleExecution(RuleSatisfiedHubEvent ruleExecution) {

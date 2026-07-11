@@ -1,5 +1,7 @@
 package coop.local.scheduler;
 
+import coop.device.Actuator;
+import coop.device.PortCommand;
 import coop.device.protocol.DownlinkFrame;
 import coop.device.protocol.event.CommandCompleteEvent;
 import coop.device.protocol.event.Event;
@@ -15,6 +17,8 @@ import coop.local.state.LocalStateProvider;
 import coop.shared.pi.StateProvider;
 import coop.shared.pi.config.ComponentState;
 import coop.shared.pi.config.CoopState;
+import coop.shared.pi.events.PortActionHubEvent;
+import lombok.extern.log4j.Log4j2;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -24,6 +28,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+@Log4j2
 public class Scheduler implements EventListener, Invokable {
     private static final Duration PURGE_FREQUENCY = Duration.ofHours(6);
 
@@ -89,6 +94,7 @@ public class Scheduler implements EventListener, Invokable {
                 if(reserved.isExpired()) {
                     reserved.setStatus(JobStatus.FAILED);
                     jobRepository.updateStatus(reserved);
+                    logPortAction(reserved, "FAILED");
                 }
             }
         }
@@ -156,6 +162,7 @@ public class Scheduler implements EventListener, Invokable {
         resourceManager.stopConsuming(job);
         job.setStatus(JobStatus.CANCELLED);
         jobRepository.updateStatus(job);
+        logPortAction(job, "CANCELLED");
     }
 
     public List<Job> getUnSubmittedJobs(String componentId) {
@@ -163,6 +170,22 @@ public class Scheduler implements EventListener, Invokable {
                 .stream()
                 .filter(job -> job.getStatus().rank() < JobStatus.WAITING_FOR_COMPLETE.rank())
                 .toList();
+    }
+
+    /**
+     * Cancels any unsubmitted job for this component that the given frame supersedes (same request for the same
+     * target), then creates a job for the frame.
+     */
+    public synchronized boolean createSupersedingExisting(ComponentState component, Actuator actuator, DownlinkFrame frame) {
+        List<Job> jobs = getUnSubmittedJobs(component.getComponentId());
+        for (Job job : jobs) {
+            DownlinkFrame jobFrame = DownlinkFrame.fromString(job.getDownlink().getFrame());
+            if (actuator.supersedes(jobFrame, frame)) {
+                cancelJob(job);
+            }
+        }
+
+        return create(component, frame, frame.getId());
     }
 
     /**
@@ -213,6 +236,11 @@ public class Scheduler implements EventListener, Invokable {
             resourceManager.stopConsuming(job);
             job.setStatus(JobStatus.COMPLETE);
             jobRepository.updateStatus(job);
+            // Deliberately not logging a port action here: CommandCompleteEvent only signals this downlink
+            // frame's own lifecycle ended (e.g. a TURN_ON's hold period), not that the state it requested is
+            // actually true - a later TURN_OFF that cuts a TURN_ON short makes the TURN_ON complete too,
+            // producing misleading ordering. PortStatusProcessor (driven by the device's own StatusEvent
+            // broadcasts) is the source of truth for a port's actual on/off state.
         }
 
     }
@@ -308,11 +336,52 @@ public class Scheduler implements EventListener, Invokable {
 
         job.setStatus(JobStatus.FAILED);
         jobRepository.updateStatus(job);
+        logPortAction(job, "FAILED");
         if(job.getDedupeKey() != null) {
             dedupeKeys.remove(job.getDedupeKey());
         }
 
         resourceManager.stopConsuming(job);
+    }
+
+    /**
+     * Reports a job's port-level outcome (completed/failed/cancelled) back up via the same HubEvent
+     * pipeline metrics and rule-executions already use, regardless of whether the job was manually or
+     * rule-triggered - both flow through this same scheduler.
+     */
+    private void logPortAction(Job job, String status) {
+        try {
+            CoopState state = stateProvider.getConfig();
+            if(state == null || state.getComponents() == null) {
+                return;
+            }
+
+            ComponentState component = state.getComponents()
+                    .stream()
+                    .filter(c -> job.getComponentId().equals(c.getComponentId()))
+                    .findFirst()
+                    .orElse(null);
+
+            if(component == null || component.getDeviceType() == null
+                    || !(component.getDeviceType().getDevice() instanceof Actuator actuator)) {
+                return;
+            }
+
+            DownlinkFrame frame = DownlinkFrame.fromString(job.getDownlink().getFrame());
+            PortCommand described = actuator.describeFrame(frame);
+            if(described == null) {
+                return;
+            }
+
+            PortActionHubEvent event = new PortActionHubEvent(
+                    component.getComponentId(), described.portIndex(), described.actionKey(), null, status);
+            event.setDt(System.currentTimeMillis());
+            event.setCoopId(state.getCoopId());
+            stateProvider.save(event);
+
+        } catch (Exception e) {
+            log.error("Failed to log port action for job " + job.getId(), e);
+        }
     }
 
     /**

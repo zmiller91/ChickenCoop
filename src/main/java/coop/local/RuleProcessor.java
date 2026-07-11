@@ -2,6 +2,7 @@ package coop.local;
 
 import coop.device.Actuator;
 import coop.device.Device;
+import coop.device.PortCommand;
 import coop.device.protocol.DownlinkFrame;
 import coop.device.protocol.event.Event;
 import coop.device.protocol.event.MetricEvent;
@@ -16,6 +17,7 @@ import coop.local.state.LocalStateProvider;
 import coop.shared.database.table.rule.Operator;
 import coop.shared.pi.config.*;
 import coop.shared.pi.events.RuleSatisfiedHubEvent;
+import coop.shared.pi.events.PortActionHubEvent;
 import lombok.extern.log4j.Log4j2;
 import org.apache.commons.lang3.ObjectUtils;
 
@@ -157,6 +159,17 @@ public class RuleProcessor implements EventListener {
                 if(isCommandValid) {
                     DownlinkFrame downlink = actuator.createCommand(actionComponent.getSerialNumber(), action.getActionKey(), action.getParams());
                     scheduler.create(actionComponent, downlink, action.getId());
+
+                    // Ask the actuator what this frame targets rather than reaching into params by a
+                    // device-specific key name - keeps the rule engine generic across device types.
+                    PortCommand described = actuator.describeFrame(downlink);
+                    if(described != null) {
+                        PortActionHubEvent portEvent = new PortActionHubEvent(
+                                actionComponent.getComponentId(), described.portIndex(), described.actionKey(), "RULE", "REQUESTED");
+                        portEvent.setDt(now);
+                        portEvent.setCoopId(coop.getCoopId());
+                        provider.save(portEvent);
+                    }
                 }
             }
         }

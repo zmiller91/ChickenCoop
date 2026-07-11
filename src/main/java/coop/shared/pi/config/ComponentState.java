@@ -11,6 +11,7 @@ public class ComponentState {
     private String serialNumber;
     private DeviceType deviceType;
     private Map<String, String> config;
+    private Map<Integer, Map<String, String>> portConfig;
     private String groupId;
 
     public boolean isAlwaysOn() {

@@ -65,19 +65,34 @@ public class EventProcessor {
         }
 
         for (Event event : events) {
+            dispatch(event, coop, component);
+        }
+    }
 
-            Class<? extends Event> eventClass = event.getClass();
-            List<EventListener> listeners = LISTENERS.get(eventClass);
-            if(listeners != null) {
-                EventPayload payload = new EventPayload(event, coop, component);
-                listeners.forEach((l) -> {
-                    try {
-                        l.receive(payload);
-                    } catch (Throwable t) {
-                        log.error("Failed to execute listener " + l.getClass().getName(), t);
-                    }
-                });
-            }
+    /**
+     * Delivers an event that didn't come from a parsed uplink frame (e.g. a command relayed from the cloud) to
+     * whatever listeners are registered for its class, given the component it targets is already known.
+     */
+    public static void receiveRemoteCommand(CoopState coop, ComponentState component, Event event) {
+        if (coop == null || component == null || event == null) {
+            return;
+        }
+
+        dispatch(event, coop, component);
+    }
+
+    private static void dispatch(Event event, CoopState coop, ComponentState component) {
+        Class<? extends Event> eventClass = event.getClass();
+        List<EventListener> listeners = LISTENERS.get(eventClass);
+        if(listeners != null) {
+            EventPayload payload = new EventPayload(event, coop, component);
+            listeners.forEach((l) -> {
+                try {
+                    l.receive(payload);
+                } catch (Throwable t) {
+                    log.error("Failed to execute listener " + l.getClass().getName(), t);
+                }
+            });
         }
     }
 }

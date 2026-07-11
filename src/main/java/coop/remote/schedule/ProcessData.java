@@ -12,6 +12,7 @@ import coop.shared.database.repository.*;
 import coop.shared.database.table.Pi;
 import coop.shared.pi.events.MetricReceived;
 import coop.shared.pi.events.RuleSatisfiedHubEvent;
+import coop.shared.pi.events.PortActionHubEvent;
 import lombok.extern.log4j.Log4j2;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -42,6 +43,9 @@ public class ProcessData {
 
     @Autowired
     private MetricProcessor metricProcessor;
+
+    @Autowired
+    private PortActionProcessor portActionProcessor;
 
     @Scheduled(fixedDelay = 5, initialDelay = 0, timeUnit = TimeUnit.MINUTES)
     public void processQueue() {
@@ -99,6 +103,12 @@ public class ProcessData {
 
                     RuleSatisfiedHubEvent event = GSON.fromJson(payload, RuleSatisfiedHubEvent.class);
                     ruleSatisfiedProcessor.process(pi, event);
+                    break;
+
+                case PORT_ACTION:
+
+                    PortActionHubEvent portEvent = GSON.fromJson(payload, PortActionHubEvent.class);
+                    portActionProcessor.process(pi, portEvent);
                     break;
             }
         }

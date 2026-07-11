@@ -30,6 +30,10 @@ public class CommandEventParser implements EventParser {
             return Collections.singletonList(ManualOverrideEvent.from(frame));
         }
 
+        if(StatusEvent.isEvent(frame)) {
+            return Collections.singletonList(StatusEvent.from(frame));
+        }
+
         return List.of();
     }
 }

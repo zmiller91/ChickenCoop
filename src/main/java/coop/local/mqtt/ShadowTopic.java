@@ -20,7 +20,8 @@ public enum ShadowTopic {
     GET("$aws/things/%s/shadow/get"),
     UPDATE("$aws/things/%s/shadow/update"),
     DELETE("$aws/things/%s/shadow/delete"),
-    EVENT("hub_event");
+    EVENT("hub_event"),
+    COMMAND("hub_command/%s");
 
     private String shadowName;
     private final String topic;

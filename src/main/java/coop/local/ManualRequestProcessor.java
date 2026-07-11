@@ -5,7 +5,7 @@ import coop.device.protocol.DownlinkFrame;
 import coop.device.protocol.event.Event;
 import coop.device.protocol.event.ManualOverrideEvent;
 import coop.device.protocol.event.ManualRequestEvent;
-import coop.local.database.job.Job;
+import coop.device.protocol.event.RemoteManualCommandEvent;
 import coop.local.listener.EventListener;
 import coop.local.scheduler.Scheduler;
 import coop.local.state.LocalStateProvider;
@@ -23,7 +23,7 @@ public class ManualRequestProcessor implements EventListener {
 
     @Override
     public List<Class<? extends Event>> listenForClasses() {
-        return List.of(ManualRequestEvent.class, ManualOverrideEvent.class);
+        return List.of(ManualRequestEvent.class, ManualOverrideEvent.class, RemoteManualCommandEvent.class);
     }
 
     @Override
@@ -35,6 +35,10 @@ public class ManualRequestProcessor implements EventListener {
 
         if(payload.getEvent() instanceof ManualOverrideEvent event) {
             processOverride(event);
+        }
+
+        if(payload.getEvent() instanceof RemoteManualCommandEvent event) {
+            processRemoteCommand(payload.getComponent(), event);
         }
     }
 
@@ -55,19 +59,9 @@ public class ManualRequestProcessor implements EventListener {
         if (component.getDeviceType().getDevice() instanceof Actuator actuator) {
 
             // Create the downlink frame from the request
-            DownlinkFrame requestedFrame = actuator.manualRequest(event, component.getSerialNumber(), component.getConfig());
+            DownlinkFrame requestedFrame = actuator.manualRequest(event, component.getSerialNumber(), component.getConfig(), component.getPortConfig());
             if(requestedFrame != null) {
-
-                // Find jobs that are queued and cancel any where the new job will supersede the existing job.
-                List<Job> jobs = scheduler.getUnSubmittedJobs(component.getComponentId());
-                for (Job job : jobs) {
-                    DownlinkFrame jobFrame = DownlinkFrame.fromString(job.getDownlink().getFrame());
-                    if (actuator.supersedes(jobFrame, requestedFrame)) {
-                        scheduler.cancelJob(job);
-                    }
-                }
-
-                scheduler.create(component, requestedFrame, requestedFrame.getId());
+                scheduler.createSupersedingExisting(component, actuator, requestedFrame);
             }
         }
 
@@ -76,6 +70,25 @@ public class ManualRequestProcessor implements EventListener {
 
     private void processOverride(ManualOverrideEvent event) {
         System.out.println("Manual override recieved.");
+    }
+
+    /**
+     * Handles a one-shot manual command relayed from the cloud (or, in free-tier/database mode, the local
+     * webserver running in the same process). Params are already fully resolved server-side, so this goes
+     * straight to createCommand rather than the physical-uplink manualRequest(...) path.
+     */
+    private void processRemoteCommand(ComponentState component, RemoteManualCommandEvent event) {
+
+        if(component == null || component.getDeviceType() == null) {
+            return;
+        }
+
+        if (component.getDeviceType().getDevice() instanceof Actuator actuator) {
+            DownlinkFrame frame = actuator.createCommand(component.getSerialNumber(), event.getActionKey(), event.getParams());
+            if(frame != null) {
+                scheduler.createSupersedingExisting(component, actuator, frame);
+            }
+        }
     }
 
 }

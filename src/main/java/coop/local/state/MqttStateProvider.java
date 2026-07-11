@@ -69,7 +69,8 @@ public class MqttStateProvider extends LocalStateProvider {
         try {
             client().withSubscriptions(Arrays.asList(
                     new UpdateSubscription(this),
-                    new SyncConfigSubscription(this)
+                    new SyncConfigSubscription(this),
+                    new CommandSubscription(this)
             )).connect();
 
 //            sleep(2000);

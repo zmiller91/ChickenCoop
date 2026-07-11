@@ -4,11 +4,14 @@ import coop.device.Action;
 import coop.device.Actuator;
 import coop.device.ConfigKey;
 import coop.device.Device;
+import coop.device.PortCommand;
 import coop.device.protocol.DownlinkFrame;
 import coop.device.protocol.event.ManualOverrideEvent;
 import coop.device.protocol.event.ManualRequestEvent;
+import coop.device.protocol.event.StatusEvent;
 import coop.device.protocol.parser.CommandEventParser;
 import coop.device.protocol.parser.EventParser;
+import org.apache.commons.lang3.math.NumberUtils;
 
 import java.util.Arrays;
 import java.util.List;
@@ -16,6 +19,14 @@ import java.util.Map;
 import java.util.stream.Stream;
 
 public class ValveActuator implements Device, Actuator {
+
+    /**
+     * Number of ports this device supports. Purely a cloud-side/UI concept today (used to seed
+     * ComponentPort display names and populate zone pickers) - the wire protocol doesn't validate
+     * against it.
+     */
+    public static final int PORT_COUNT = 8;
+
     @Override
     public String getDescription() {
         return "Water Valve";
@@ -28,10 +39,15 @@ public class ValveActuator implements Device, Actuator {
 
     @Override
     public ConfigKey[] getConfig() {
+        ConfigKey isAlwaysOn = new ConfigKey("always_on", "Always On");
+        return new ConfigKey[]{isAlwaysOn};
+    }
+
+    @Override
+    public ConfigKey[] getPortConfig() {
         ConfigKey defaultDuration = new ConfigKey("default_duration", "Default Duration");
         ConfigKey manualCutoff = new ConfigKey("manual_cutoff", "Manual Cutoff");
-        ConfigKey isAlwaysOn = new ConfigKey("always_on", "Always On");
-        return new ConfigKey[]{defaultDuration, manualCutoff, isAlwaysOn};
+        return new ConfigKey[]{defaultDuration, manualCutoff};
     }
 
     @Override
@@ -55,11 +71,7 @@ public class ValveActuator implements Device, Actuator {
     }
 
     @Override
-    public DownlinkFrame manualRequest(ManualRequestEvent event, String serialNumber, Map<String, String> componentConfig) {
-
-        if(componentConfig == null || !componentConfig.containsKey("default_duration")) {
-            return null;
-        }
+    public DownlinkFrame manualRequest(ManualRequestEvent event, String serialNumber, Map<String, String> componentConfig, Map<Integer, Map<String, String>> portConfig) {
 
         String[] payload = event.getPayload().split(DownlinkFrame.DELIMITER);
         if(payload.length != 2) {
@@ -73,11 +85,19 @@ public class ValveActuator implements Device, Actuator {
             return null;
         }
 
+        Map<String, String> zoneConfig = portConfig != null
+                ? portConfig.get(Integer.parseInt(requestedZone))
+                : null;
+
+        if(zoneConfig == null || !zoneConfig.containsKey("default_duration")) {
+            return null;
+        }
+
         ValveAction action = "ON".equals(requestedState) ? ValveAction.TURN_ON : ValveAction.TURN_OFF;
 
         return createCommand(serialNumber,
                 action.name(),
-                Map.of("duration", componentConfig.get("default_duration"),
+                Map.of("duration", zoneConfig.get("default_duration"),
                         "zone", requestedZone));
     }
 
@@ -136,5 +156,43 @@ public class ValveActuator implements Device, Actuator {
         }
 
         return firstTarget.equals(secondTarget);
+    }
+
+    @Override
+    public PortCommand describeFrame(DownlinkFrame frame) {
+        ValveAction action = Stream.of(ValveAction.values())
+                .filter(a -> a.getCommand().isCommand(frame))
+                .findFirst()
+                .orElse(null);
+
+        if(action == null) {
+            return null;
+        }
+
+        String port = action.getCommand().getPort(frame);
+        if(port == null || !NumberUtils.isParsable(port)) {
+            return null;
+        }
+
+        return new PortCommand(action.name(), Integer.parseInt(port));
+    }
+
+    /**
+     * TURN_ON/TURN_OFF status types report a zone's actual on/off state directly (payload is just the zone
+     * index) - unrelated to any specific command's lifecycle. Any other status type (e.g. battery) isn't
+     * something this actuator owns.
+     */
+    @Override
+    public PortCommand describePortStatus(StatusEvent event) {
+        ValveAction action = ValveAction.findByName(event.getType());
+        if(action == null) {
+            return null;
+        }
+
+        if(!NumberUtils.isParsable(event.getPayload())) {
+            return null;
+        }
+
+        return new PortCommand(event.getType(), Integer.parseInt(event.getPayload()));
     }
 }

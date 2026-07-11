@@ -9,4 +9,5 @@ public interface Command {
     boolean isValid(Map<String, String> params);
     boolean isCommand(DownlinkFrame frame);
     String getTarget(DownlinkFrame frame);
+    String getPort(DownlinkFrame frame);
 }

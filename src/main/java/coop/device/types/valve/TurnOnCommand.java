@@ -71,4 +71,13 @@ public class TurnOnCommand implements Command {
         return frame.getPayload()[0] + "." + frame.getPayload()[1];
     }
 
+    @Override
+    public String getPort(DownlinkFrame frame) {
+        if(!isCommand(frame)) {
+            return null;
+        }
+
+        return frame.getPayload()[1];
+    }
+
 }

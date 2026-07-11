@@ -1,15 +1,26 @@
 package coop.shared.api.auth;
 
+import coop.device.Actuator;
 import coop.device.ConfigKey;
 import coop.shared.database.repository.ComponentConfigRepository;
 import coop.shared.database.repository.ComponentRepository;
 import coop.shared.database.repository.ComponentSerialRepository;
 import coop.shared.database.repository.CoopRepository;
+import coop.shared.database.repository.ComponentPortRepository;
+import coop.shared.database.repository.PortActionLogRepository;
+import coop.shared.database.repository.PortConfigRepository;
 import coop.shared.database.table.*;
 import coop.shared.database.table.component.ComponentConfig;
 import coop.shared.database.table.component.ComponentSerial;
 import coop.device.types.DeviceType;
 import coop.shared.database.table.component.Component;
+import coop.shared.database.table.component.ComponentPort;
+import coop.shared.database.table.component.PortActionLogEntry;
+import coop.shared.database.table.component.PortActionSource;
+import coop.shared.database.table.component.PortActionStatus;
+import coop.shared.database.table.component.PortConfig;
+import coop.device.types.valve.ValveActuator;
+import coop.shared.exception.BadRequest;
 import coop.shared.exception.NotFound;
 import coop.shared.pi.StateFactory;
 import coop.shared.pi.StateProvider;
@@ -23,6 +34,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
 @EnableTransactionManagement
@@ -42,6 +54,15 @@ public class ComponentService {
 
     @Autowired
     private CoopRepository coopRepository;
+
+    @Autowired
+    private PortActionLogRepository portActionLogRepository;
+
+    @Autowired
+    private ComponentPortRepository portRepository;
+
+    @Autowired
+    private PortConfigRepository portConfigRepository;
 
     @Autowired
     private AuthContext userContext;
@@ -75,9 +96,13 @@ public class ComponentService {
 
         DeviceType deviceList = component.getSerial().getDeviceType();
         initialConfig(component).forEach(config -> configRepository.persist(config));
+        initialPorts(component).forEach(port -> portRepository.persist(port));
+        initialPortConfig(component).forEach(config -> portConfigRepository.persist(config));
 
         componentRepository.flush();
         configRepository.flush();
+        portRepository.flush();
+        portConfigRepository.flush();
         componentRepository.refresh(component);
 
         CoopState state = stateFactory.forCoop(component.getCoop());
@@ -94,6 +119,47 @@ public class ComponentService {
             cc.setValue("");
             return cc;
         }).toList();
+    }
+
+    private List<ComponentPort> initialPorts(Component component) {
+        if(component.getSerial().getDeviceType() != DeviceType.VALVE) {
+            return List.of();
+        }
+
+        return IntStream.range(0, ValveActuator.PORT_COUNT)
+                .mapToObj(i -> {
+                    ComponentPort port = new ComponentPort();
+                    port.setComponent(component);
+                    port.setPortIndex(i);
+                    port.setName(defaultPortName(component.getSerial().getDeviceType(), i));
+                    return port;
+                }).toList();
+    }
+
+    private String defaultPortName(DeviceType type, int index) {
+        return switch (type) {
+            case VALVE -> "Zone " + (index + 1);
+            default -> "Port " + (index + 1);
+        };
+    }
+
+    private List<PortConfig> initialPortConfig(Component component) {
+        ConfigKey[] portKeys = component.getSerial().getDeviceType().getDevice().getPortConfig();
+        if(portKeys.length == 0) {
+            return List.of();
+        }
+
+        return IntStream.range(0, ValveActuator.PORT_COUNT)
+                .boxed()
+                .flatMap(i -> Stream.of(portKeys).map(key -> {
+                    PortConfig pc = new PortConfig();
+                    pc.setComponent(component);
+                    pc.setPortIndex(i);
+                    pc.setKey(key.getKey());
+                    pc.setValue("");
+                    return pc;
+                }))
+                .toList();
     }
 
     @GetMapping("/{coopId}/list")
@@ -141,20 +207,121 @@ public class ComponentService {
         return new PostComponentResponse();
     }
 
+    @PostMapping("/{componentId}/manual")
+    public ManualCommandResponse manual(@PathVariable("componentId") String componentId, @RequestBody ManualCommandRequest request) {
+
+        Component component = componentRepository.findById(userContext.getCurrentUser(), componentId);
+        if(component == null) {
+            throw new NotFound("Component not found.");
+        }
+
+        if(!(component.getSerial().getDeviceType().getDevice() instanceof Actuator actuator)) {
+            throw new BadRequest("Component is not an actuator.");
+        }
+
+        // Params are fully resolved server-side (matches how rule actions are already baked ahead of time) -
+        // the Pi doesn't need to look anything up, it just executes what it's told.
+        Map<String, String> params = new HashMap<>();
+        params.put("zone", request.zone());
+        if("TURN_ON".equals(request.actionKey())) {
+            PortConfig duration = portConfigRepository.findByKey(component, Integer.parseInt(request.zone()), "default_duration");
+            params.put("duration", duration != null ? duration.getValue() : null);
+        }
+
+        if(!actuator.validateCommand(request.actionKey(), params)) {
+            throw new BadRequest("Invalid command.");
+        }
+
+        PortActionLogEntry logEntry = new PortActionLogEntry();
+        logEntry.setComponent(component);
+        logEntry.setPortIndex(Integer.parseInt(request.zone()));
+        logEntry.setActionKey(request.actionKey());
+        logEntry.setSource(PortActionSource.MANUAL);
+        logEntry.setStatus(PortActionStatus.REQUESTED);
+        logEntry.setCreatedAt(System.currentTimeMillis());
+        portActionLogRepository.persist(logEntry);
+
+        stateProvider.sendCommand(component.getCoop(), component.getComponentId(), request.actionKey(), params);
+
+        return new ManualCommandResponse();
+    }
+
+    @GetMapping("/{componentId}/ports/{index}/log")
+    public PortLogResponse portLog(@PathVariable("componentId") String componentId, @PathVariable("index") int index) {
+
+        Component component = componentRepository.findById(userContext.getCurrentUser(), componentId);
+        if(component == null) {
+            throw new NotFound("Component not found.");
+        }
+
+        List<PortLogEntryDAO> entries = portActionLogRepository.findRecent(component, index, 50)
+                .stream()
+                .map(e -> new PortLogEntryDAO(
+                        e.getActionKey(),
+                        e.getSource() != null ? e.getSource().name() : null,
+                        e.getStatus().name(),
+                        e.getCreatedAt()))
+                .toList();
+
+        return new PortLogResponse(entries);
+    }
+
+    @PostMapping("/{componentId}/ports")
+    public PostPortsResponse ports(@PathVariable("componentId") String componentId, @RequestBody PostPortsRequest request) {
+
+        Component component = componentRepository.findById(userContext.getCurrentUser(), componentId);
+        if(component == null) {
+            throw new NotFound("Component not found.");
+        }
+
+        request.ports().forEach(p -> {
+            portRepository.save(component, p.index(), p.name());
+            if(p.config() != null) {
+                p.config().forEach(c -> portConfigRepository.save(component, p.index(), c.key(), c.value()));
+            }
+        });
+
+        return new PostPortsResponse();
+    }
+
     private ComponentDAO componentDao(Component component) {
 
         Map<String, String> keyDisplayNames = keyDisplayNames(component);
 
+        // Only surface config keys the device type still declares - drops orphaned rows left behind when a
+        // key moves from component-level to port-level (or is retired) without a schema migration.
         List<ConfigDAO> config = component.getConfig()
                 .stream()
+                .filter(c -> keyDisplayNames.containsKey(c.getKey()))
                 .map(c -> new ConfigDAO(c.getKey(), c.getValue(), keyDisplayNames.get(c.getKey())))
+                .toList();
+
+        Map<String, String> portKeyDisplayNames = portKeyDisplayNames(component);
+
+        Map<Integer, String> portStates = new HashMap<>();
+        for(PortActionLogEntry entry : portActionLogRepository.findLatestComplete(component)) {
+            portStates.put(entry.getPortIndex(), "TURN_ON".equals(entry.getActionKey()) ? "ON" : "OFF");
+        }
+
+        List<PortDAO> ports = portRepository.findByComponent(component)
+                .stream()
+                .map(p -> {
+                    List<ConfigDAO> portConfig = portConfigRepository.findByPort(component, p.getPortIndex())
+                            .stream()
+                            .filter(c -> portKeyDisplayNames.containsKey(c.getKey()))
+                            .map(c -> new ConfigDAO(c.getKey(), c.getValue(), portKeyDisplayNames.get(c.getKey())))
+                            .toList();
+                    return new PortDAO(p.getPortIndex(), p.getName(), portConfig, portStates.get(p.getPortIndex()));
+                })
                 .toList();
 
         return new ComponentDAO(
                 component.getComponentId(),
                 component.getSerial().getSerialNumber(),
                 component.getName(),
-                config);
+                component.getSerial().getDeviceType().name(),
+                config,
+                ports);
     }
 
     private Map<String, String> keyDisplayNames(Component component) {
@@ -166,15 +333,34 @@ public class ComponentService {
         return map;
     }
 
+    private Map<String, String> portKeyDisplayNames(Component component) {
+        Map<String, String> map = new HashMap<>();
+        for(ConfigKey key : component.getSerial().getDeviceType().getDevice().getPortConfig()) {
+            map.put(key.getKey(), key.getDisplayName());
+        }
+
+        return map;
+    }
+
     public record RegisterComponentRequest(String coopId, String serialNumber, String name){}
     public record RegisterComponentResponse(String coopId, String serialNumber, String componentId){}
 
     public record ListComponentsResponse(List<ComponentDAO> components) {};
-    public record ComponentDAO(String id, String serial, String name, List<ConfigDAO> config){}
+    public record ComponentDAO(String id, String serial, String name, String type, List<ConfigDAO> config, List<PortDAO> ports){}
     public record ConfigDAO(String key, String value, String name){};
+    public record PortDAO(int index, String name, List<ConfigDAO> config, String state){};
 
     public record GetComponentResponse(ComponentDAO component){};
 
     public record PostComponentRequest(ComponentDAO component){};
     public record PostComponentResponse(){}
+
+    public record ManualCommandRequest(String actionKey, String zone){}
+    public record ManualCommandResponse(){}
+
+    public record PostPortsRequest(List<PortDAO> ports){}
+    public record PostPortsResponse(){}
+
+    public record PortLogEntryDAO(String actionKey, String source, String status, long createdAt){}
+    public record PortLogResponse(List<PortLogEntryDAO> entries){}
 }

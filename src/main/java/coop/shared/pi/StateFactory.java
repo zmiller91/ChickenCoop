@@ -2,7 +2,9 @@ package coop.shared.pi;
 
 import coop.shared.database.repository.ComponentRepository;
 import coop.shared.database.repository.RuleRepository;
+import coop.shared.database.repository.PortConfigRepository;
 import coop.shared.database.table.component.ComponentConfig;
+import coop.shared.database.table.component.PortConfig;
 import coop.shared.database.table.Coop;
 import coop.shared.database.table.rule.ComponentRuleTrigger;
 import coop.shared.database.table.rule.RuleAction;
@@ -24,6 +26,9 @@ public class StateFactory {
     @Autowired
     private RuleRepository ruleRepository;
 
+    @Autowired
+    private PortConfigRepository portConfigRepository;
+
     public CoopState forCoop(Coop coop) {
 
         if(coop == null) {
@@ -40,9 +45,16 @@ public class StateFactory {
                         config.put(c.getKey(), c.getValue());
                     }
 
+                    Map<Integer, Map<String, String>> portConfig = new HashMap<>();
+                    for (PortConfig pc : portConfigRepository.findByComponent(component)) {
+                        portConfig.computeIfAbsent(pc.getPortIndex(), k -> new HashMap<>())
+                                .put(pc.getKey(), pc.getValue());
+                    }
+
                     ComponentState state = new ComponentState();
                     state.setComponentId(component.getComponentId());
                     state.setConfig(config);
+                    state.setPortConfig(portConfig);
                     state.setDeviceType(component.getSerial().getDeviceType());
                     state.setSerialNumber(component.getSerial().getSerialNumber());
                     return state;
