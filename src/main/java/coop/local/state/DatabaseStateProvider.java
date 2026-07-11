@@ -7,6 +7,8 @@ import coop.shared.database.table.Pi;
 import coop.shared.database.table.component.PortActionLogEntry;
 import coop.shared.database.table.component.PortActionSource;
 import coop.shared.database.table.component.PortActionStatus;
+import coop.shared.database.table.rule.Rule;
+import coop.shared.database.table.rule.RuleExecutionLogEntry;
 import coop.shared.pi.StateFactory;
 import coop.shared.pi.events.HubEvent;
 import coop.shared.pi.events.MetricReceived;
@@ -50,6 +52,9 @@ public class DatabaseStateProvider extends LocalStateProvider {
 
     @Autowired
     private PortActionLogRepository portActionLogRepository;
+
+    @Autowired
+    private RuleExecutionLogRepository ruleExecutionLogRepository;
 
     @Autowired
     private PiContext piContext;
@@ -111,6 +116,22 @@ public class DatabaseStateProvider extends LocalStateProvider {
 
     private void saveRuleExecution(RuleSatisfiedHubEvent ruleExecution) {
         Pi pi = piRepository.findById(piContext.piId());
+
+        Coop coop = coopRepository.findById(pi, coopId);
+        if(coop == null) {
+            return;
+        }
+
+        Rule rule = ruleRepository.findByCoopAndId(coop, ruleExecution.getRuleId());
+        if(rule == null) {
+            return;
+        }
+
+        RuleExecutionLogEntry entry = new RuleExecutionLogEntry();
+        entry.setRule(rule);
+        entry.setCreatedAt(ruleExecution.getDt());
+        ruleExecutionLogRepository.persist(entry);
+
         InboxMessageProjection projection = new InboxMessageProjection(coopRepository, ruleRepository);
         projection.from(pi, ruleExecution).forEach(message -> {
             inboxRepository.persist(message);

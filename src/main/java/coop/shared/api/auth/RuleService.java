@@ -8,6 +8,7 @@ import coop.device.RuleSource;
 import coop.shared.database.repository.ComponentRepository;
 import coop.shared.database.repository.ContactRepository;
 import coop.shared.database.repository.CoopRepository;
+import coop.shared.database.repository.RuleExecutionLogRepository;
 import coop.shared.database.repository.RuleRepository;
 import coop.shared.database.table.Contact;
 import coop.shared.database.table.Coop;
@@ -57,6 +58,9 @@ public class RuleService {
 
     @Autowired
     private RuleRepository ruleRepository;
+
+    @Autowired
+    private RuleExecutionLogRepository ruleExecutionLogRepository;
 
     @Autowired
     private StateProvider stateProvider;
@@ -129,6 +133,29 @@ public class RuleService {
         return new GetRuleResponse(toDTO(rule));
     }
 
+    @GetMapping("{coopId}/{ruleId}/log")
+    public RuleLogResponse ruleLog(
+            @PathVariable("coopId") String coopId,
+            @PathVariable("ruleId") String ruleId) {
+
+        Coop coop = coopRepository.findById(userContext.getCurrentUser(), coopId);
+        if(coop == null) {
+            throw new NotFound("Coop not found.");
+        }
+
+        Rule rule = ruleRepository.findById(coop.getUser(), ruleId);
+        if(rule == null || !rule.getCoop().equals(coop)) {
+            throw new NotFound("Rule not found.");
+        }
+
+        List<RuleLogEntryDAO> entries = ruleExecutionLogRepository.findRecent(rule, 50)
+                .stream()
+                .map(e -> new RuleLogEntryDAO(e.getCreatedAt()))
+                .toList();
+
+        return new RuleLogResponse(entries);
+    }
+
     @DeleteMapping("{coopId}/{ruleId}")
     public void delete(
             @PathVariable("coopId") String coopId,
@@ -177,6 +204,7 @@ public class RuleService {
 
         verifyTriggerExclusivity(request.rule);
         verifyScheduleTriggers(request.rule);
+        verifyTimeTriggers(request.rule);
 
         rule.setName(request.rule.name);
 
@@ -189,6 +217,11 @@ public class RuleService {
         deleteComponentTriggersInUpdate(rule, request);
         addComponentTriggersInUpdate(rule, request);
         updateComponentTriggersInUpdate(rule, request);
+
+        // Time triggers
+        deleteTimeTriggersInUpdate(rule, request);
+        addTimeTriggersInUpdate(rule, request);
+        updateTimeTriggersInUpdate(rule, request);
 
         // Schedule triggers
         deleteScheduleTriggersInUpdate(rule, request);
@@ -258,6 +291,57 @@ public class RuleService {
                 .toList();
 
         toRemove.forEach(rule::removeScheduledTrigger);
+    }
+
+    private void updateTimeTriggersInUpdate(Rule rule, UpdateRuleRequest request) {
+        Map<String, RuleTimeTrigger> triggersById = rule.getTimeTriggers().stream()
+                .filter(a -> !Strings.isBlank(a.getId()))
+                .collect(Collectors.toMap(RuleTimeTrigger::getId, Function.identity()));
+
+        for (TimeTriggerDTO dto : request.rule().timeTriggers()) {
+            if (Strings.isBlank(dto.id())) continue;
+
+            RuleTimeTrigger trigger = triggersById.get(dto.id());
+            if (trigger == null) {
+                throw new NotFound("Time trigger not found: " + dto.id());
+            }
+
+            trigger.setHour(dto.hour());
+            trigger.setMinute(dto.minute());
+            trigger.setOperator(Operator.valueOf(dto.operator()));
+        }
+    }
+
+    private void addTimeTriggersInUpdate(Rule rule, UpdateRuleRequest request) {
+
+        List<RuleTimeTrigger> newTimeTriggers = request.rule().timeTriggers()
+                .stream()
+                .filter(dto -> dto.id() == null)
+                .map(dto -> {
+
+                    RuleTimeTrigger trigger = new RuleTimeTrigger();
+                    trigger.setHour(dto.hour());
+                    trigger.setMinute(dto.minute());
+                    trigger.setOperator(Operator.valueOf(dto.operator()));
+                    trigger.setRule(rule);
+                    return trigger;
+
+                }).toList();
+
+        rule.getTimeTriggers().addAll(newTimeTriggers);
+    }
+
+    private void deleteTimeTriggersInUpdate(Rule rule, UpdateRuleRequest request) {
+        Set<String> idsInRequest = request.rule().timeTriggers().stream()
+                .map(TimeTriggerDTO::id)
+                .filter(id -> !Strings.isBlank(id))
+                .collect(Collectors.toSet());
+
+        List<RuleTimeTrigger> toRemove = rule.getTimeTriggers().stream()
+                .filter(t -> !idsInRequest.contains(t.getId()))
+                .toList();
+
+        toRemove.forEach(rule::removeTimeTrigger);
     }
 
     private void updateComponentTriggersInUpdate(Rule rule, UpdateRuleRequest request) {
@@ -481,6 +565,7 @@ public class RuleService {
 
         verifyComponentTriggers(request.rule);
         verifyScheduleTriggers(request.rule);
+        verifyTimeTriggers(request.rule);
         verifyTriggerExclusivity(request.rule);
         verifyActions(request.rule);
         verifyNotifications(coop, request.rule);
@@ -511,6 +596,17 @@ public class RuleService {
             trigger.setHour(dto.hour());
             trigger.setMinute(dto.minute());
             trigger.setGap(dto.gap());
+            trigger.setRule(rule);
+            return trigger;
+
+        }).toList();
+
+        List<RuleTimeTrigger> timeTriggers = ObjectUtils.firstNonNull(request.rule.timeTriggers, Collections.<TimeTriggerDTO>emptyList()).stream().map(dto -> {
+
+            RuleTimeTrigger trigger = new RuleTimeTrigger();
+            trigger.setHour(dto.hour());
+            trigger.setMinute(dto.minute());
+            trigger.setOperator(Operator.valueOf(dto.operator()));
             trigger.setRule(rule);
             return trigger;
 
@@ -564,6 +660,7 @@ public class RuleService {
         rule.setActions(actions);
         rule.setComponentTriggers(componentTriggers);
         rule.setScheduleTriggers(scheduleTriggers);
+        rule.setTimeTriggers(timeTriggers);
         rule.setNotifications(notifications);
 
         ruleRepository.persist(rule);
@@ -713,9 +810,35 @@ public class RuleService {
         }
     }
 
+    private void verifyTimeTriggers(RuleDTO rule) {
+
+        List<TimeTriggerDTO> timeTriggers = ObjectUtils.firstNonNull(rule.timeTriggers(), Collections.emptyList());
+        for(TimeTriggerDTO trigger : timeTriggers) {
+
+            if(StringUtils.isEmpty(trigger.operator())) {
+                throw new BadRequest("Time condition operator is missing.");
+            }
+
+            try {
+                Operator.valueOf(trigger.operator());
+            } catch (IllegalArgumentException e) {
+                throw new BadRequest("Unknown time condition operator.");
+            }
+
+            if(trigger.hour() < 0 || trigger.hour() > 23) {
+                throw new BadRequest("Time condition hour must be between 0 and 23.");
+            }
+
+            if(trigger.minute() < 0 || trigger.minute() > 59) {
+                throw new BadRequest("Time condition minute must be between 0 and 59.");
+            }
+        }
+    }
+
     private void verifyTriggerExclusivity(RuleDTO rule) {
 
-        boolean hasComponentTriggers = !ObjectUtils.firstNonNull(rule.componentTriggers(), Collections.emptyList()).isEmpty();
+        boolean hasComponentTriggers = !ObjectUtils.firstNonNull(rule.componentTriggers(), Collections.emptyList()).isEmpty()
+                || !ObjectUtils.firstNonNull(rule.timeTriggers(), Collections.emptyList()).isEmpty();
         boolean hasScheduleTriggers = !ObjectUtils.firstNonNull(rule.scheduleTriggers(), Collections.emptyList()).isEmpty();
 
         if(hasComponentTriggers && hasScheduleTriggers) {
@@ -742,6 +865,7 @@ public class RuleService {
                 rule.getStatus().name(),
                 rule.getComponentTriggers().stream().map(RuleService::toDTO).toList(),
                 rule.getScheduleTriggers().stream().map(RuleService::toDTO).toList(),
+                rule.getTimeTriggers().stream().map(RuleService::toDTO).toList(),
                 rule.getActions().stream().map(RuleService::toDTO).toList(),
                 rule.getNotifications().stream().map(RuleService::toDTO).toList()
         );
@@ -754,6 +878,15 @@ public class RuleService {
                 trigger.getHour(),
                 trigger.getMinute(),
                 trigger.getGap()
+        );
+    }
+
+    private static TimeTriggerDTO toDTO(RuleTimeTrigger trigger) {
+        return new TimeTriggerDTO(
+                trigger.getId(),
+                trigger.getHour(),
+                trigger.getMinute(),
+                trigger.getOperator().name()
         );
     }
 
@@ -826,6 +959,8 @@ public class RuleService {
     public record ListActuatorsResponse(List<RuleComponentDTO> components, Map<String, ActuatorDTO> actions){}
     public record GetRuleResponse(RuleDTO rule){};
     public record UpdateRuleRequest(RuleDTO rule) { }
+    public record RuleLogEntryDAO(long createdAt){}
+    public record RuleLogResponse(List<RuleLogEntryDAO> entries){}
 
     public record SignalDTO(String key){}
     public record SourceDTO(List<SignalDTO> signals){}
@@ -833,8 +968,9 @@ public class RuleService {
     public record RuleComponentDTO(String id, String name, String serialNumber, String type){};
     public record RuleActionDTO(String id, RuleComponentDTO component, String actionKey, Map<String, String> params){};
     public record ScheduleTriggerDTO(String id, String frequency, int hour, int minute, int gap){};
+    public record TimeTriggerDTO(String id, int hour, int minute, String operator){};
     public record ComponentTriggerDTO(String id, RuleComponentDTO component, String signal, double threshold, String operator){};
-    public record RuleDTO(String id, String name, String status, List<ComponentTriggerDTO> componentTriggers, List<ScheduleTriggerDTO> scheduleTriggers, List<RuleActionDTO> actions, List<RuleNotificationDTO> notifications){};
+    public record RuleDTO(String id, String name, String status, List<ComponentTriggerDTO> componentTriggers, List<ScheduleTriggerDTO> scheduleTriggers, List<TimeTriggerDTO> timeTriggers, List<RuleActionDTO> actions, List<RuleNotificationDTO> notifications){};
     public record ActuatorActionDTO(String key, String[] params){}
     public record ActuatorDTO(List<ActuatorActionDTO> actions){}
 

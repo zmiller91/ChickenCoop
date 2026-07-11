@@ -9,5 +9,6 @@ public class RuleState {
     private String ruleId;
     private List<RuleComponentTriggerState> componentTriggers;
     private List<RuleScheduleTriggerState> scheduleTriggers;
+    private List<RuleTimeTriggerState> timeTriggers;
     private List<RuleActionState> actions;
 }

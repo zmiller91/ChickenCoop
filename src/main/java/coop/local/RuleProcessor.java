@@ -29,6 +29,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.time.ZoneId;
 import java.time.temporal.ChronoUnit;
 import java.util.*;
@@ -327,7 +328,7 @@ public class RuleProcessor implements EventListener, Invokable {
     //TODO: If the operator is invalid, then should we return false or bubble up a failure?
     private boolean isRuleSatisfied(RuleState rule) {
         //TODO: Hard coding age limit to two hours should probably be configurable
-        return rule.getComponentTriggers().stream().allMatch(trigger -> {
+        boolean componentTriggersSatisfied = rule.getComponentTriggers().stream().allMatch(trigger -> {
             try {
 
                 MetricCacheEntry entry = metricCache.findRecent(trigger.getComponentId(), trigger.getMetric(), Duration.ofHours(2));
@@ -341,6 +342,28 @@ public class RuleProcessor implements EventListener, Invokable {
                 return false;
             }
         });
+
+        boolean timeTriggersSatisfied = Optional.ofNullable(rule.getTimeTriggers())
+                .orElseGet(List::of)
+                .stream()
+                .allMatch(this::isTimeConditionSatisfied);
+
+        return componentTriggersSatisfied && timeTriggersSatisfied;
+    }
+
+    /**
+     * Time conditions are ANDed alongside component triggers, evaluated the same reactive way (e.g. "moisture
+     * below 40% AND before 8AM") - not a separate clock-driven firing path like ScheduledRuleTrigger.
+     */
+    private boolean isTimeConditionSatisfied(RuleTimeTriggerState trigger) {
+        try {
+            LocalTime now = LocalTime.now();
+            double nowMinutes = now.getHour() * 60 + now.getMinute();
+            double thresholdMinutes = trigger.getHour() * 60 + trigger.getMinute();
+            return Operator.valueOf(trigger.getOperator()).evaluate(nowMinutes, thresholdMinutes);
+        } catch (IllegalArgumentException | NullPointerException e) {
+            return false;
+        }
     }
 
     private Map<String, String> context(RuleState rule) {

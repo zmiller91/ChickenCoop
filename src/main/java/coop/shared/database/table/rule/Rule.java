@@ -39,6 +39,9 @@ public class Rule implements AuthorizerScopedTable {
     private List<ScheduledRuleTrigger> scheduleTriggers = new ArrayList<>();
 
     @OneToMany(mappedBy = "rule", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<RuleTimeTrigger> timeTriggers = new ArrayList<>();
+
+    @OneToMany(mappedBy = "rule", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<RuleAction> actions = new ArrayList<>();
 
     @OneToMany(mappedBy = "rule", cascade = CascadeType.ALL, orphanRemoval = true)
@@ -61,6 +64,16 @@ public class Rule implements AuthorizerScopedTable {
 
     public void removeScheduledTrigger(ScheduledRuleTrigger t) {
         scheduleTriggers.remove(t);
+        t.setRule(null);
+    }
+
+    public void addTimeTrigger(RuleTimeTrigger t) {
+        timeTriggers.add(t);
+        t.setRule(this);
+    }
+
+    public void removeTimeTrigger(RuleTimeTrigger t) {
+        timeTriggers.remove(t);
         t.setRule(null);
     }
 

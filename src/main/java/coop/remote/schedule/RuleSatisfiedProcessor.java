@@ -2,8 +2,11 @@ package coop.remote.schedule;
 
 import coop.shared.database.repository.CoopRepository;
 import coop.shared.database.repository.InboxMessageRepository;
+import coop.shared.database.repository.RuleExecutionLogRepository;
 import coop.shared.database.repository.RuleRepository;
 import coop.shared.database.table.Pi;
+import coop.shared.database.table.rule.Rule;
+import coop.shared.database.table.rule.RuleExecutionLogEntry;
 import coop.shared.pi.events.RuleSatisfiedHubEvent;
 import coop.shared.projection.EmailMessageProjection;
 import coop.shared.projection.InboxMessageProjection;
@@ -27,10 +30,21 @@ public class RuleSatisfiedProcessor {
     private InboxMessageRepository inboxRepository;
 
     @Autowired
+    private RuleExecutionLogRepository ruleExecutionLogRepository;
+
+    @Autowired
     private SesClient ses;
 
     @Transactional
     public void process(Pi pi, RuleSatisfiedHubEvent ruleExecution) {
+
+        Rule rule = ruleRepository.findById(pi, ruleExecution.getRuleId());
+        if(rule != null) {
+            RuleExecutionLogEntry entry = new RuleExecutionLogEntry();
+            entry.setRule(rule);
+            entry.setCreatedAt(ruleExecution.getDt());
+            ruleExecutionLogRepository.persist(entry);
+        }
 
         InboxMessageProjection inboxProjection = new InboxMessageProjection(coopRepository, ruleRepository);
         inboxProjection.from(pi, ruleExecution).forEach(message -> {

@@ -9,6 +9,7 @@ import coop.shared.database.table.Coop;
 import coop.shared.database.table.rule.ComponentRuleTrigger;
 import coop.shared.database.table.rule.RuleAction;
 import coop.shared.database.table.rule.ScheduledRuleTrigger;
+import coop.shared.database.table.rule.RuleTimeTrigger;
 import coop.shared.pi.config.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
@@ -70,6 +71,7 @@ public class StateFactory {
                     state.setActions(toActionState(rule.getActions()));
                     state.setComponentTriggers(toComponentTriggerState(rule.getComponentTriggers()));
                     state.setScheduleTriggers(toScheduleTriggerState(rule.getScheduleTriggers()));
+                    state.setTimeTriggers(toTimeTriggerState(rule.getTimeTriggers()));
                     return state;
 
                 }).toList();
@@ -94,6 +96,19 @@ public class StateFactory {
             state.setGap(trigger.getGap());
             state.setHour(trigger.getHour());
             state.setMinute(trigger.getMinute());
+            return state;
+
+        }).toList();
+    }
+
+    private List<RuleTimeTriggerState> toTimeTriggerState(List<RuleTimeTrigger> triggers) {
+        return triggers.stream().map(trigger -> {
+
+            RuleTimeTriggerState state = new RuleTimeTriggerState();
+            state.setId(trigger.getId());
+            state.setHour(trigger.getHour());
+            state.setMinute(trigger.getMinute());
+            state.setOperator(trigger.getOperator().name());
             return state;
 
         }).toList();
