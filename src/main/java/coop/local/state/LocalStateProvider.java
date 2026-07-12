@@ -31,7 +31,7 @@ public abstract class LocalStateProvider extends StateProvider {
      * Both database mode and mqtt mode run this in-process, on the Pi, alongside EventProcessor - so a command
      * can be dispatched directly without any network hop. (In mqtt mode, this is only reachable if something
      * inside this same process calls it directly; commands relayed from the cloud instead arrive via
-     * CommandSubscription, which calls EventProcessor.receiveRemoteCommand the same way.)
+     * CommandSubscription, which calls EventProcessor.receiveSyntheticEvent the same way.)
      */
     @Override
     public void sendCommand(Coop coop, String componentId, String actionKey, Map<String, String> params) {
@@ -47,6 +47,6 @@ public abstract class LocalStateProvider extends StateProvider {
                 .findFirst()
                 .orElse(null);
 
-        EventProcessor.receiveRemoteCommand(config, component, new RemoteManualCommandEvent(actionKey, params));
+        EventProcessor.receiveSyntheticEvent(config, component, new RemoteManualCommandEvent(actionKey, params));
     }
 }

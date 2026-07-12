@@ -202,7 +202,6 @@ public class RuleService {
             throw new BadRequest("Invalid resource.");
         }
 
-        verifyTriggerExclusivity(request.rule);
         verifyScheduleTriggers(request.rule);
         verifyTimeTriggers(request.rule);
 
@@ -566,7 +565,6 @@ public class RuleService {
         verifyComponentTriggers(request.rule);
         verifyScheduleTriggers(request.rule);
         verifyTimeTriggers(request.rule);
-        verifyTriggerExclusivity(request.rule);
         verifyActions(request.rule);
         verifyNotifications(coop, request.rule);
 
@@ -835,17 +833,6 @@ public class RuleService {
         }
     }
 
-    private void verifyTriggerExclusivity(RuleDTO rule) {
-
-        boolean hasComponentTriggers = !ObjectUtils.firstNonNull(rule.componentTriggers(), Collections.emptyList()).isEmpty()
-                || !ObjectUtils.firstNonNull(rule.timeTriggers(), Collections.emptyList()).isEmpty();
-        boolean hasScheduleTriggers = !ObjectUtils.firstNonNull(rule.scheduleTriggers(), Collections.emptyList()).isEmpty();
-
-        if(hasComponentTriggers && hasScheduleTriggers) {
-            throw new BadRequest("A rule can only use one trigger type: condition or schedule.");
-        }
-    }
-    
     @GetMapping("/{coopId}/list")
     public ListRulesResponse list(@PathVariable("coopId") String coopId) {
         Coop coop = coopRepository.findById(userContext.getCurrentUser(), coopId);

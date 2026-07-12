@@ -71,12 +71,16 @@ public class EventProcessor {
     }
 
     /**
-     * Delivers an event that didn't come from a parsed uplink frame (e.g. a command relayed from the cloud) to
-     * whatever listeners are registered for its class, given the component it targets is already known.
+     * Delivers an event that didn't come from a parsed uplink frame to whatever listeners are registered for
+     * its class, given the component it targets is already known. Used for anything synthesized locally or
+     * relayed from elsewhere rather than physically read off the wire - e.g. a command relayed from the cloud
+     * (CommandSubscription), or a metric fetched from an external API on the Pi's own schedule
+     * (WeatherForecastFetcher) - so it goes through the exact same rule/metric pipeline a real device's event
+     * would.
      */
-    public static void receiveRemoteCommand(CoopState coop, ComponentState component, Event event) {
+    public static void receiveSyntheticEvent(CoopState coop, ComponentState component, Event event) {
         if (coop == null || component == null || event == null) {
-            log.warn("Dropping remote command - coop, component, or event was null.");
+            log.warn("Dropping synthetic event - coop, component, or event was null.");
             return;
         }
 

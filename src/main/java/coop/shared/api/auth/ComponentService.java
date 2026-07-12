@@ -111,6 +111,50 @@ public class ComponentService {
         return new RegisterComponentResponse(coop.getId(), serialNumber.getSerialNumber(), component.getComponentId());
     }
 
+    /**
+     * Weather forecast components are virtual - there's no physical device to hand the user a pre-printed
+     * serial number for, so unlike /register this generates its own (scoped to the coop, since serial numbers
+     * are a single global namespace and every coop needs its own component/serial pair - they can't share
+     * one). One per coop for now; free while the forecast data stays cheap/simple - if it grows into
+     * something metered later, this is the endpoint that would gain that check.
+     */
+    @PostMapping("/{coopId}/weather-forecast")
+    public RegisterComponentResponse registerWeatherForecast(@PathVariable("coopId") String coopId) {
+
+        Coop coop = coopRepository.findById(userContext.getCurrentUser(), coopId);
+        if (coop == null) {
+            throw new NotFound("Coop not found.");
+        }
+
+        boolean alreadyExists = coop.getComponents().stream()
+                .anyMatch(c -> c.getSerial().getDeviceType() == DeviceType.WEATHER_FORECAST);
+        if (alreadyExists) {
+            throw new BadRequest("This coop already has a weather forecast component.");
+        }
+
+        ComponentSerial serial = new ComponentSerial();
+        serial.setSerialNumber("weather-forecast-" + coopId);
+        serial.setDeviceType(DeviceType.WEATHER_FORECAST);
+        componentSerialRepository.persist(serial);
+
+        Component component = new Component();
+        component.setName("Weather Forecast");
+        component.setCoop(coop);
+        component.setSerial(serial);
+        componentRepository.persist(component);
+
+        initialConfig(component).forEach(config -> configRepository.persist(config));
+
+        componentRepository.flush();
+        configRepository.flush();
+        componentRepository.refresh(component);
+
+        CoopState state = stateFactory.forCoop(coop);
+        stateProvider.put(state);
+
+        return new RegisterComponentResponse(coop.getId(), serial.getSerialNumber(), component.getComponentId());
+    }
+
     private List<ComponentConfig> initialConfig(Component component) {
         return Stream.of(component.getSerial().getDeviceType().getDevice().getConfig()).map(c -> {
             ComponentConfig cc = new ComponentConfig();

@@ -51,7 +51,7 @@ public class CommandSubscription extends ShadowSubscription {
             }
 
             log.info("No issues processing subscription. Continuing.");
-            EventProcessor.receiveRemoteCommand(coop, component, new RemoteManualCommandEvent(payload.getActionKey(), payload.getParams()));
+            EventProcessor.receiveSyntheticEvent(coop, component, new RemoteManualCommandEvent(payload.getActionKey(), payload.getParams()));
 
         } catch (Exception e) {
             log.error("Failed to process remote command.", e);

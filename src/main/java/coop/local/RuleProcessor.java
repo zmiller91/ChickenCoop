@@ -209,8 +209,15 @@ public class RuleProcessor implements EventListener, Invokable {
     }
 
     /**
-     * Ticked roughly once a second by PiRunner. Reactive (component-triggered) rules are handled entirely by
-     * receive() above - this only drives schedule-triggered rules, which have no incoming event to react to.
+     * Ticked roughly once a second by PiRunner. Reactive (component/time-triggered) rules are handled entirely
+     * by receive() above - this drives schedule-triggered rules, which have no incoming event to react to.
+     *
+     * A schedule being due is necessary but not sufficient to fire: the rule's other conditions (component
+     * metric thresholds, time-of-day) still have to hold too, via the same isRuleSatisfied() the reactive path
+     * uses - e.g. "water at 6am" gated by "unless rain is forecast" (a component trigger against a
+     * WEATHER_FORECAST component's metric). If gated off, the schedule trigger's lastFiredDt is deliberately
+     * left untouched so isScheduleDue() naturally retries on the next scheduled occurrence rather than firing
+     * late once the gate clears mid-day.
      */
     @Override
     public void invoke() {
@@ -244,11 +251,18 @@ public class RuleProcessor implements EventListener, Invokable {
                         .filter(trigger -> isScheduleDue(trigger, now))
                         .toList();
 
-                if(!due.isEmpty()) {
-                    dispatchRuleActions(coop, rule, componentsById, System.currentTimeMillis());
-                    long firedAt = System.currentTimeMillis();
-                    due.forEach(trigger -> scheduleTriggerStateRepository.upsert(trigger.getId(), firedAt));
+                if(due.isEmpty()) {
+                    continue;
                 }
+
+                if(!isRuleSatisfied(rule)) {
+                    log.info("Schedule due for rule " + rule.getRuleId() + " but gated by unmet conditions; skipping.");
+                    continue;
+                }
+
+                dispatchRuleActions(coop, rule, componentsById, System.currentTimeMillis());
+                long firedAt = System.currentTimeMillis();
+                due.forEach(trigger -> scheduleTriggerStateRepository.upsert(trigger.getId(), firedAt));
             } catch (Throwable t) {
                 log.error("Failed to process schedule triggers for rule " + rule.getRuleId(), t);
             }
