@@ -1,5 +1,6 @@
 package coop.local.listener;
 
+import com.google.gson.Gson;
 import coop.device.protocol.UplinkFrame;
 import coop.device.protocol.event.*;
 import coop.device.protocol.parser.EventParser;
@@ -79,6 +80,7 @@ public class EventProcessor {
             return;
         }
 
+        log.info("Dispatching event: " + new Gson().toJson(event));
         dispatch(event, coop, component);
     }
 
@@ -94,6 +96,7 @@ public class EventProcessor {
         listeners.forEach((l) -> {
             try {
                 l.receive(payload);
+                log.info("Event dispatched: " + new Gson().toJson(payload));
             } catch (Throwable t) {
                 log.error("Failed to execute listener " + l.getClass().getName(), t);
             }
