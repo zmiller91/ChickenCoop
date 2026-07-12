@@ -11,9 +11,11 @@ import coop.local.scheduler.Scheduler;
 import coop.local.state.LocalStateProvider;
 import coop.shared.pi.config.ComponentState;
 import lombok.AllArgsConstructor;
+import lombok.extern.log4j.Log4j2;
 
 import java.util.List;
 
+@Log4j2
 @AllArgsConstructor
 public class ManualRequestProcessor implements EventListener {
 
@@ -80,14 +82,19 @@ public class ManualRequestProcessor implements EventListener {
     private void processRemoteCommand(ComponentState component, RemoteManualCommandEvent event) {
 
         if(component == null || component.getDeviceType() == null) {
+            log.warn("Dropping remote command - component or its device type was null.");
             return;
         }
 
         if (component.getDeviceType().getDevice() instanceof Actuator actuator) {
             DownlinkFrame frame = actuator.createCommand(component.getSerialNumber(), event.getActionKey(), event.getParams());
-            if(frame != null) {
-                scheduler.createSupersedingExisting(component, actuator, frame);
+            if(frame == null) {
+                log.warn("Dropping remote command - " + event.getActionKey() + " failed validation for component "
+                        + component.getComponentId() + " with params " + event.getParams());
+                return;
             }
+
+            scheduler.createSupersedingExisting(component, actuator, frame);
         }
     }
 

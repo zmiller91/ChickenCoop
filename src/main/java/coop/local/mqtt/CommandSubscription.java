@@ -29,7 +29,13 @@ public class CommandSubscription extends ShadowSubscription {
             RemoteCommandPayload payload = gson.fromJson(new String(raw.getPayload()), RemoteCommandPayload.class);
 
             CoopState coop = provider.getConfig();
-            if (coop == null || payload == null || payload.getComponentId() == null) {
+            if (coop == null) {
+                log.warn("Dropping remote command - no config loaded yet.");
+                return;
+            }
+
+            if (payload == null || payload.getComponentId() == null) {
+                log.warn("Dropping remote command - payload missing or has no componentId: " + new String(raw.getPayload()));
                 return;
             }
 
@@ -38,6 +44,11 @@ public class CommandSubscription extends ShadowSubscription {
                     .filter(c -> payload.getComponentId().equals(c.getComponentId()))
                     .findFirst()
                     .orElse(null);
+
+            if (component == null) {
+                log.warn("Dropping remote command - no component " + payload.getComponentId() + " in the currently loaded config.");
+                return;
+            }
 
             EventProcessor.receiveRemoteCommand(coop, component, new RemoteManualCommandEvent(payload.getActionKey(), payload.getParams()));
 

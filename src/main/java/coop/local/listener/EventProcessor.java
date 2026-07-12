@@ -75,6 +75,7 @@ public class EventProcessor {
      */
     public static void receiveRemoteCommand(CoopState coop, ComponentState component, Event event) {
         if (coop == null || component == null || event == null) {
+            log.warn("Dropping remote command - coop, component, or event was null.");
             return;
         }
 
@@ -84,15 +85,18 @@ public class EventProcessor {
     private static void dispatch(Event event, CoopState coop, ComponentState component) {
         Class<? extends Event> eventClass = event.getClass();
         List<EventListener> listeners = LISTENERS.get(eventClass);
-        if(listeners != null) {
-            EventPayload payload = new EventPayload(event, coop, component);
-            listeners.forEach((l) -> {
-                try {
-                    l.receive(payload);
-                } catch (Throwable t) {
-                    log.error("Failed to execute listener " + l.getClass().getName(), t);
-                }
-            });
+        if(listeners == null) {
+            log.warn("No listeners registered for " + eventClass.getSimpleName());
+            return;
         }
+
+        EventPayload payload = new EventPayload(event, coop, component);
+        listeners.forEach((l) -> {
+            try {
+                l.receive(payload);
+            } catch (Throwable t) {
+                log.error("Failed to execute listener " + l.getClass().getName(), t);
+            }
+        });
     }
 }
