@@ -46,10 +46,11 @@ public class ProcessData {
     @Autowired
     private PortActionProcessor portActionProcessor;
 
-    // fixedDelay = 0 means the next poll starts immediately once the previous one returns - combined with the
-    // 20s long poll below, this keeps a connection to SQS effectively always open instead of sitting idle
-    // between short-polls, so a message shows up in the UI within ~20s instead of up to 5 minutes.
-    @Scheduled(fixedDelay = 0)
+    // fixedDelay = 1ms (JDK's scheduleWithFixedDelay rejects 0) means the next poll starts essentially
+    // immediately once the previous one returns - combined with the 20s long poll below, this keeps a
+    // connection to SQS effectively always open instead of sitting idle between short-polls, so a message
+    // shows up in the UI within ~20s instead of up to 5 minutes.
+    @Scheduled(fixedDelay = 1)
     public void processQueue() {
 
         ReceiveMessageRequest request = new ReceiveMessageRequest();
