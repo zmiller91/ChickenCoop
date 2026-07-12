@@ -22,6 +22,12 @@ import java.util.List;
  * not just port state) - this listener only acts when Actuator.describePortStatus recognizes the type as a
  * port state change and ignores everything else. A future non-port status type would get its own listener
  * on StatusEvent rather than being added here.
+ *
+ * describePortStatus can describe multiple ports at once (e.g. a combined all-ports state broadcast) - this
+ * stays tier-agnostic (works the same whether provider.save() persists directly or forwards over MQTT), so
+ * it doesn't dedupe against last-known state itself; that happens wherever the event is actually persisted
+ * (DatabaseStateProvider/PortActionProcessor), since only those layers have DB access in every deployment
+ * tier.
  */
 @AllArgsConstructor
 public class PortStatusProcessor implements EventListener {
@@ -62,15 +68,19 @@ public class PortStatusProcessor implements EventListener {
             return;
         }
 
-        PortCommand described = actuator.describePortStatus(event);
-        if(described == null) {
+        List<PortCommand> described = actuator.describePortStatus(event);
+        if(described == null || described.isEmpty()) {
             return;
         }
 
-        PortActionHubEvent portEvent = new PortActionHubEvent(
-                component.getComponentId(), described.portIndex(), described.actionKey(), null, "COMPLETE");
-        portEvent.setDt(System.currentTimeMillis());
-        portEvent.setCoopId(provider.getConfig().getCoopId());
-        provider.save(portEvent);
+        long now = System.currentTimeMillis();
+
+        for(PortCommand command : described) {
+            PortActionHubEvent portEvent = new PortActionHubEvent(
+                    component.getComponentId(), command.portIndex(), command.actionKey(), null, "COMPLETE");
+            portEvent.setDt(now);
+            portEvent.setCoopId(provider.getConfig().getCoopId());
+            provider.save(portEvent);
+        }
     }
 }

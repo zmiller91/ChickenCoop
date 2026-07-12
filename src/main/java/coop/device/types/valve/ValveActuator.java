@@ -13,7 +13,9 @@ import coop.device.protocol.parser.CommandEventParser;
 import coop.device.protocol.parser.EventParser;
 import org.apache.commons.lang3.math.NumberUtils;
 
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Stream;
@@ -178,21 +180,35 @@ public class ValveActuator implements Device, Actuator {
     }
 
     /**
-     * TURN_ON/TURN_OFF status types report a zone's actual on/off state directly (payload is just the zone
-     * index) - unrelated to any specific command's lifecycle. Any other status type (e.g. battery) isn't
-     * something this actuator owns.
+     * STATE reports every port's current on/off state in one combined broadcast (sent both on-change and
+     * periodically for self-healing) - a fixed-width bitmap where character i is '1' (ON) or '0' (OFF) for
+     * port i. Unlike a per-port status, this always describes every port unconditionally regardless of
+     * whether it actually changed; PortStatusProcessor is responsible for diffing against last-known state
+     * before deciding what's worth logging. Any other status type (e.g. battery) isn't something this
+     * actuator owns.
      */
     @Override
-    public PortCommand describePortStatus(StatusEvent event) {
-        ValveAction action = ValveAction.findByName(event.getType());
-        if(action == null) {
-            return null;
+    public List<PortCommand> describePortStatus(StatusEvent event) {
+        if(!"STATE".equals(event.getType())) {
+            return Collections.emptyList();
         }
 
-        if(!NumberUtils.isParsable(event.getPayload())) {
-            return null;
+        String payload = event.getPayload();
+        if(payload == null || payload.length() != PORT_COUNT) {
+            return Collections.emptyList();
         }
 
-        return new PortCommand(event.getType(), Integer.parseInt(event.getPayload()));
+        List<PortCommand> commands = new ArrayList<>(PORT_COUNT);
+        for(int i = 0; i < PORT_COUNT; i++) {
+            char bit = payload.charAt(i);
+            if(bit != '0' && bit != '1') {
+                return Collections.emptyList();
+            }
+
+            ValveAction action = bit == '1' ? ValveAction.TURN_ON : ValveAction.TURN_OFF;
+            commands.add(new PortCommand(action.name(), i));
+        }
+
+        return commands;
     }
 }

@@ -25,12 +25,16 @@ public interface Actuator {
     PortCommand describeFrame(DownlinkFrame frame);
 
     /**
-     * Interprets a device-reported status broadcast as a port state change, or null if this event's type
-     * isn't a port-state status this actuator owns. This is deliberately narrow - StatusEvent is a generic,
-     * multi-purpose broadcast (its "type" could just as easily be something unrelated to ports at all, e.g.
-     * a battery level), so PortCommand only fits the subset of status types that describe a port's on/off
-     * state. Any other status type needs its own listener on StatusEvent rather than being forced through
-     * this method or represented as a PortCommand.
+     * Interprets a device-reported status broadcast as a set of port state changes, or an empty list if this
+     * event's type isn't a port-state status this actuator owns. This is deliberately narrow - StatusEvent is
+     * a generic, multi-purpose broadcast (its "type" could just as easily be something unrelated to ports at
+     * all, e.g. a battery level), so PortCommand only fits the subset of status types that describe port
+     * on/off state. Any other status type needs its own listener on StatusEvent rather than being forced
+     * through this method or represented as a PortCommand.
+     *
+     * Returns every port this status type describes (e.g. a device that reports all its ports' state in one
+     * combined broadcast returns one PortCommand per port) - the caller is responsible for deciding which of
+     * those, if any, represent an actual change worth acting on.
      */
-    PortCommand describePortStatus(StatusEvent event);
+    List<PortCommand> describePortStatus(StatusEvent event);
 }
