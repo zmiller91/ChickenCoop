@@ -20,7 +20,6 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
-import java.util.concurrent.TimeUnit;
 
 @Component
 @Log4j2
@@ -47,14 +46,16 @@ public class ProcessData {
     @Autowired
     private PortActionProcessor portActionProcessor;
 
-    @Scheduled(fixedDelay = 5, initialDelay = 0, timeUnit = TimeUnit.MINUTES)
+    // fixedDelay = 0 means the next poll starts immediately once the previous one returns - combined with the
+    // 20s long poll below, this keeps a connection to SQS effectively always open instead of sitting idle
+    // between short-polls, so a message shows up in the UI within ~20s instead of up to 5 minutes.
+    @Scheduled(fixedDelay = 0)
     public void processQueue() {
-
-        System.out.println("\n\n\nProcessing schedule\n\n\n");
 
         ReceiveMessageRequest request = new ReceiveMessageRequest();
         request.setQueueUrl(metricSqsUrl);
         request.setMaxNumberOfMessages(10);
+        request.setWaitTimeSeconds(20);
 
         ReceiveMessageResult result = sqs.receiveMessage(request);
         while(!result.getMessages().isEmpty()) {
