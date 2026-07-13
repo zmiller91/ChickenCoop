@@ -34,6 +34,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
@@ -132,8 +133,12 @@ public class ComponentService {
             throw new BadRequest("This coop already has a weather forecast component.");
         }
 
+        // SERIAL_NUMBER is varchar(32), so a random UUID with the dashes stripped fits exactly. Deliberately
+        // not derived from coopId (e.g. reusing it directly) - that would permanently tie one serial to one
+        // coop with no room for a second down the line. Nothing associates a serial back to its coop by
+        // reading the string itself; join through the components table for that.
         ComponentSerial serial = new ComponentSerial();
-        serial.setSerialNumber("weather-forecast-" + coopId);
+        serial.setSerialNumber(UUID.randomUUID().toString().replace("-", ""));
         serial.setDeviceType(DeviceType.WEATHER_FORECAST);
         componentSerialRepository.persist(serial);
 
