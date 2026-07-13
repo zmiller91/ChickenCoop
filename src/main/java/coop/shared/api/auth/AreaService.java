@@ -187,18 +187,18 @@ public class AreaService {
     }
 
     private List<Area> resolveAreas(Coop coop, List<String> areaIds) {
-        return areaIds.stream().map(id -> {
-            Area area = areaRepository.findByIdAndCoop(coop, id);
-            if (area == null) {
-                throw new BadRequest("Area " + id + " not found.");
-            }
-            return area;
-        }).toList();
+        List<Area> areas = areaRepository.findByIdsAndCoop(coop, areaIds);
+        if (areas.size() != areaIds.size()) {
+            List<String> foundIds = areas.stream().map(Area::getId).toList();
+            List<String> missingIds = areaIds.stream().filter(id -> !foundIds.contains(id)).toList();
+            throw new BadRequest("Area(s) not found: " + String.join(", ", missingIds));
+        }
+        return areas;
     }
 
     private void applyRequest(Coop coop, Area area, AreaDTO dto) {
         area.setName(dto.name());
-        area.setType(AreaType.valueOf(dto.type()));
+        area.setType(parseAreaType(dto.type()));
 
         if (dto.parentId() == null) {
             area.setParent(null);
@@ -208,6 +208,14 @@ public class AreaService {
                 throw new BadRequest("Parent area not found.");
             }
             area.setParent(parent);
+        }
+    }
+
+    private static AreaType parseAreaType(String type) {
+        try {
+            return AreaType.valueOf(type);
+        } catch (IllegalArgumentException e) {
+            throw new BadRequest("Unknown area type: " + type);
         }
     }
 

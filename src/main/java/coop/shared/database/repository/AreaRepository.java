@@ -33,6 +33,13 @@ public class AreaRepository extends AuthorizerScopedRepository<Area> {
                 .orElse(null);
     }
 
+    public List<Area> findByIdsAndCoop(Coop coop, List<String> ids) {
+        return this.query("FROM Area WHERE coop = :coop AND id IN :ids", Area.class)
+                .setParameter("coop", coop)
+                .setParameter("ids", ids)
+                .list();
+    }
+
     public List<Area> findByParent(Area parent) {
         return this.query("FROM Area WHERE parent = :parent", Area.class)
                 .setParameter("parent", parent)
