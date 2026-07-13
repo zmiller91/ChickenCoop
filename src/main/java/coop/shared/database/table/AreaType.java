@@ -7,6 +7,7 @@ package coop.shared.database.table;
  */
 public enum AreaType {
     GARDEN,
+    GARDEN_BED,
     CHICKEN_COOP,
     OTHER
 }

@@ -29,7 +29,11 @@ public class AreaComponentRepository extends GenericRepository<AreaComponent> {
      * multi-select UI to drive (send the whole selected list, not incremental add/remove calls).
      */
     public void deleteByComponent(Component component) {
-        this.query("DELETE FROM AreaComponent WHERE component = :component", AreaComponent.class)
+        // Typed queries (this.query(..., Class)) can't be DML in Hibernate - "Update/delete queries
+        // cannot be typed" - so this goes straight through the session instead, same as the other
+        // executeUpdate() call sites in this codebase (e.g. JobRepository.updateStatus).
+        sessionFactory.getCurrentSession()
+                .createQuery("DELETE FROM AreaComponent WHERE component = :component")
                 .setParameter("component", component)
                 .executeUpdate();
     }
