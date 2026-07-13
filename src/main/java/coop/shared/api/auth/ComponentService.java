@@ -2,6 +2,8 @@ package coop.shared.api.auth;
 
 import coop.device.Actuator;
 import coop.device.ConfigKey;
+import coop.shared.database.repository.AreaComponentPortRepository;
+import coop.shared.database.repository.AreaComponentRepository;
 import coop.shared.database.repository.ComponentConfigRepository;
 import coop.shared.database.repository.ComponentRepository;
 import coop.shared.database.repository.ComponentSerialRepository;
@@ -64,6 +66,12 @@ public class ComponentService {
 
     @Autowired
     private PortConfigRepository portConfigRepository;
+
+    @Autowired
+    private AreaComponentRepository areaComponentRepository;
+
+    @Autowired
+    private AreaComponentPortRepository areaComponentPortRepository;
 
     @Autowired
     private AuthContext userContext;
@@ -360,8 +368,20 @@ public class ComponentService {
                             .filter(c -> portKeyDisplayNames.containsKey(c.getKey()))
                             .map(c -> new ConfigDAO(c.getKey(), c.getValue(), portKeyDisplayNames.get(c.getKey())))
                             .toList();
-                    return new PortDAO(p.getPortIndex(), p.getName(), portConfig, portStates.get(p.getPortIndex()));
+                    List<AreaService.AreaDTO> portAreas = areaComponentPortRepository
+                            .findByComponentAndPort(component.getComponentId(), p.getPortIndex())
+                            .stream()
+                            .map(AreaComponentPort::getArea)
+                            .map(AreaService::toDTO)
+                            .toList();
+                    return new PortDAO(p.getPortIndex(), p.getName(), portConfig, portStates.get(p.getPortIndex()), portAreas);
                 })
+                .toList();
+
+        List<AreaService.AreaDTO> componentAreas = areaComponentRepository.findByComponent(component)
+                .stream()
+                .map(AreaComponent::getArea)
+                .map(AreaService::toDTO)
                 .toList();
 
         return new ComponentDAO(
@@ -370,7 +390,8 @@ public class ComponentService {
                 component.getName(),
                 component.getSerial().getDeviceType().name(),
                 config,
-                ports);
+                ports,
+                componentAreas);
     }
 
     private Map<String, String> keyDisplayNames(Component component) {
@@ -395,9 +416,9 @@ public class ComponentService {
     public record RegisterComponentResponse(String coopId, String serialNumber, String componentId){}
 
     public record ListComponentsResponse(List<ComponentDAO> components) {};
-    public record ComponentDAO(String id, String serial, String name, String type, List<ConfigDAO> config, List<PortDAO> ports){}
+    public record ComponentDAO(String id, String serial, String name, String type, List<ConfigDAO> config, List<PortDAO> ports, List<AreaService.AreaDTO> areas){}
     public record ConfigDAO(String key, String value, String name){};
-    public record PortDAO(int index, String name, List<ConfigDAO> config, String state){};
+    public record PortDAO(int index, String name, List<ConfigDAO> config, String state, List<AreaService.AreaDTO> areas){};
 
     public record GetComponentResponse(ComponentDAO component){};
 
