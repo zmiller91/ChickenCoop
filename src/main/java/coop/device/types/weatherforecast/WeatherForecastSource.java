@@ -4,9 +4,7 @@ import coop.device.*;
 import coop.device.protocol.parser.EventParser;
 
 import java.util.List;
-
-import static coop.device.types.weatherforecast.WeatherForecastSignals.RAIN_AMOUNT_24H;
-import static coop.device.types.weatherforecast.WeatherForecastSignals.RAIN_PROBABILITY_24H;
+import java.util.stream.Stream;
 
 /**
  * A virtual device, not a physical one - it never receives real serial uplinks. WeatherForecastFetcher
@@ -39,6 +37,6 @@ public class WeatherForecastSource implements Sensor, Device, RuleSource {
 
     @Override
     public List<RuleSignal> getRuleMetrics() {
-        return List.of(RAIN_PROBABILITY_24H.getSignal(), RAIN_AMOUNT_24H.getSignal());
+        return Stream.of(WeatherForecastSignals.values()).map(WeatherForecastSignals::getSignal).toList();
     }
 }
