@@ -82,7 +82,8 @@ public class WeatherForecastFetcher {
         String url = String.format(
                 "https://api.open-meteo.com/v1/forecast?latitude=%s&longitude=%s"
                         + "&hourly=precipitation_probability,precipitation,temperature_2m,relative_humidity_2m,"
-                        + "wind_speed_10m,cloud_cover,et0_fao_evapotranspiration,dew_point_2m,uv_index"
+                        + "wind_speed_10m,cloud_cover,et0_fao_evapotranspiration,dew_point_2m,uv_index,"
+                        + "shortwave_radiation"
                         + "&temperature_unit=fahrenheit&wind_speed_unit=mph"
                         + "&timeformat=unixtime&timezone=UTC&forecast_days=2&past_days=1",
                 latitude, longitude);
@@ -171,6 +172,7 @@ public class WeatherForecastFetcher {
         dispatchSnapshot(coop, component, WeatherForecastSignals.EVAPOTRANSPIRATION, forecast.et0_fao_evapotranspiration, snapshotIndex);
         dispatchSnapshot(coop, component, WeatherForecastSignals.DEW_POINT, forecast.dew_point_2m, snapshotIndex);
         dispatchSnapshot(coop, component, WeatherForecastSignals.UV_INDEX, forecast.uv_index, snapshotIndex);
+        dispatchSnapshot(coop, component, WeatherForecastSignals.SOLAR_RADIATION, forecast.shortwave_radiation, snapshotIndex);
     }
 
     private void dispatchSnapshot(CoopState coop, ComponentState component, WeatherForecastSignals signal,
@@ -203,5 +205,6 @@ public class WeatherForecastFetcher {
         private List<Double> et0_fao_evapotranspiration;
         private List<Double> dew_point_2m;
         private List<Double> uv_index;
+        private List<Double> shortwave_radiation;
     }
 }

@@ -30,7 +30,8 @@ public enum WeatherForecastSignals {
     CLOUD_COVER,
     EVAPOTRANSPIRATION,
     DEW_POINT,
-    UV_INDEX;
+    UV_INDEX,
+    SOLAR_RADIATION;
 
     private final RuleSignal signal;
     WeatherForecastSignals() {
