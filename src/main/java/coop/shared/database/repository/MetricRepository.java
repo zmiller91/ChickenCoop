@@ -85,7 +85,7 @@ public class MetricRepository extends AuthorizerScopedRepository<CoopMetric> {
                     `COMPONENT_ID` AS `componentId`,
                     CAST(`%s` AS CHAR) AS `date`,
                     `METRIC` AS `metric`,
-                    ROUND(AVG(`VALUE`)) as `value`
+                    ROUND(AVG(`VALUE`), 2) as `value`
                 FROM metrics
                 WHERE `COOP_ID` = :coopId
                 AND `DT` >= :dt
@@ -168,7 +168,7 @@ public class MetricRepository extends AuthorizerScopedRepository<CoopMetric> {
                     `COMPONENT_ID` AS `componentId`,
                     CAST(`%s` AS CHAR) AS `date`,
                     `METRIC` AS `metric`,
-                    ROUND(AVG(`VALUE`)) as `value`
+                    ROUND(AVG(`VALUE`), 2) as `value`
                 FROM metrics
                 WHERE `COOP_ID` = :coopId
                 AND `DT` >= :dt
