@@ -1,5 +1,6 @@
 package coop.shared.database.repository;
 
+import coop.shared.database.table.Area;
 import coop.shared.database.table.AreaComponent;
 import coop.shared.database.table.component.Component;
 import org.springframework.stereotype.Repository;
@@ -21,6 +22,12 @@ public class AreaComponentRepository extends GenericRepository<AreaComponent> {
     public List<AreaComponent> findByComponent(Component component) {
         return this.query("FROM AreaComponent WHERE component = :component", AreaComponent.class)
                 .setParameter("component", component)
+                .list();
+    }
+
+    public List<AreaComponent> findByArea(Area area) {
+        return this.query("FROM AreaComponent WHERE area = :area", AreaComponent.class)
+                .setParameter("area", area)
                 .list();
     }
 
