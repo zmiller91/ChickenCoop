@@ -134,8 +134,8 @@ public class AreaService {
             throw new NotFound("Coop not found.");
         }
 
-        Component component = componentRepository.findById(userContext.getCurrentUser(), componentId);
-        if (component == null || !component.getCoop().equals(coop)) {
+        Component component = componentRepository.findByCoopAndId(coop, componentId);
+        if (component == null) {
             throw new NotFound("Component not found.");
         }
 
@@ -155,10 +155,6 @@ public class AreaService {
     }
 
     /**
-     * Same as setComponentAreas, but for a single port on a multi-port device (e.g. one of a valve's zones) -
-     * independent of whatever areas the parent component itself belongs to.
-     */
-    /**
      * Same as setComponentAreas, but for every component in one request/transaction - lets a caller with N
      * components to update (e.g. the Edit page's membership save) avoid N separate calls, which previously had
      * to be sequenced client-side to dodge a MySQL/InnoDB deadlock (concurrent transactions all inserting into
@@ -176,8 +172,8 @@ public class AreaService {
         List<BulkAreaAssignmentResult> results = new ArrayList<>();
 
         for (ComponentAreaAssignment assignment : request.assignments()) {
-            Component component = componentRepository.findById(userContext.getCurrentUser(), assignment.componentId());
-            if (component == null || !component.getCoop().equals(coop)) {
+            Component component = componentRepository.findByCoopAndId(coop, assignment.componentId());
+            if (component == null) {
                 throw new NotFound("Component not found: " + assignment.componentId());
             }
 
@@ -201,6 +197,10 @@ public class AreaService {
         return new BulkSetAreasResponse(results);
     }
 
+    /**
+     * Same as setComponentAreas, but for a single port on a multi-port device (e.g. one of a valve's zones) -
+     * independent of whatever areas the parent component itself belongs to.
+     */
     @PutMapping("{coopId}/components/{componentId}/ports/{portIndex}")
     public SetAreasResponse setPortAreas(@PathVariable("coopId") String coopId,
                                           @PathVariable("componentId") String componentId,
@@ -211,8 +211,8 @@ public class AreaService {
             throw new NotFound("Coop not found.");
         }
 
-        Component component = componentRepository.findById(userContext.getCurrentUser(), componentId);
-        if (component == null || !component.getCoop().equals(coop)) {
+        Component component = componentRepository.findByCoopAndId(coop, componentId);
+        if (component == null) {
             throw new NotFound("Component not found.");
         }
 
