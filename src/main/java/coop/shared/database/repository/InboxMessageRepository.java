@@ -4,6 +4,7 @@ import coop.shared.database.table.Coop;
 import coop.shared.database.table.inbox.InboxMessage;
 import org.springframework.stereotype.Repository;
 
+import java.time.Instant;
 import java.util.List;
 
 @Repository
@@ -59,5 +60,19 @@ public class InboxMessageRepository extends AuthorizerScopedRepository<InboxMess
                 )
                 .setParameter("coop", coop)
                 .uniqueResult();
+    }
+
+    public int markAllReadByCoop(Coop coop) {
+        return sessionFactory.getCurrentSession().createQuery(
+                        "UPDATE InboxMessage m " +
+                                "SET m.readTs = :now " +
+                                "WHERE m.coop = :coop " +
+                                "  AND m.readTs IS NULL " +
+                                "  AND m.archivedTs IS NULL " +
+                                "  AND m.deletedTs IS NULL"
+                )
+                .setParameter("now", Instant.now())
+                .setParameter("coop", coop)
+                .executeUpdate();
     }
 }
