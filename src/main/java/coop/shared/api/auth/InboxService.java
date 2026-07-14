@@ -95,6 +95,17 @@ public class InboxService {
         inboxRepository.persist(message);
     }
 
+    @PostMapping("/{coopId}/read-all")
+    public void markAllRead(@PathVariable String coopId) {
+
+        Coop coop = coopRepository.findById(userContext.getCurrentUser(), coopId);
+        if(coop == null) {
+            throw new NotFound("Coop not found.");
+        }
+
+        inboxRepository.markAllReadByCoop(coop);
+    }
+
     public static InboxMessageDTO toDTO(InboxMessage message) {
         return new InboxMessageDTO(
                 message.getId(),
