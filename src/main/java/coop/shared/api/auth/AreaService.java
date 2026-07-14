@@ -5,6 +5,7 @@ import coop.shared.database.repository.AreaComponentRepository;
 import coop.shared.database.repository.AreaRepository;
 import coop.shared.database.repository.ComponentRepository;
 import coop.shared.database.repository.CoopRepository;
+import coop.shared.database.repository.PortActionLogRepository;
 import coop.shared.database.table.Area;
 import coop.shared.database.table.AreaComponent;
 import coop.shared.database.table.AreaComponentPort;
@@ -12,6 +13,7 @@ import coop.shared.database.table.AreaComponentPortId;
 import coop.shared.database.table.AreaType;
 import coop.shared.database.table.Coop;
 import coop.shared.database.table.component.Component;
+import coop.shared.database.table.component.PortActionLogEntry;
 import coop.shared.exception.BadRequest;
 import coop.shared.exception.NotFound;
 import coop.shared.security.AuthContext;
@@ -45,6 +47,9 @@ public class AreaService {
 
     @Autowired
     private AreaComponentPortRepository areaComponentPortRepository;
+
+    @Autowired
+    private PortActionLogRepository portActionLogRepository;
 
     @GetMapping("{coopId}/list")
     public ListAreasResponse listAreas(@PathVariable("coopId") String coopId) {
@@ -186,6 +191,36 @@ public class AreaService {
         return new SetAreasResponse(areas.stream().map(AreaService::toDTO).toList());
     }
 
+    @GetMapping("{coopId}/{areaId}/activity")
+    public AreaActivityResponse activity(@PathVariable("coopId") String coopId, @PathVariable("areaId") String areaId) {
+        Coop coop = coopRepository.findById(userContext.getCurrentUser(), coopId);
+        if (coop == null) {
+            throw new NotFound("Coop not found.");
+        }
+
+        Area area = areaRepository.findByIdAndCoop(coop, areaId);
+        if (area == null) {
+            throw new NotFound("Area not found.");
+        }
+
+        List<Component> components = areaComponentRepository.findByArea(area).stream()
+                .map(AreaComponent::getComponent)
+                .toList();
+
+        List<PortActionLogEntry> entries = portActionLogRepository.findRecentByComponents(components, 20);
+
+        return new AreaActivityResponse(entries.stream()
+                .map(e -> new ActivityEntryDAO(
+                        e.getComponent().getComponentId(),
+                        e.getComponent().getName(),
+                        e.getPortIndex(),
+                        e.getActionKey(),
+                        e.getSource() != null ? e.getSource().name() : null,
+                        e.getStatus().name(),
+                        e.getCreatedAt()))
+                .toList());
+    }
+
     private List<Area> resolveAreas(Coop coop, List<String> areaIds) {
         List<Area> areas = areaRepository.findByIdsAndCoop(coop, areaIds);
         if (areas.size() != areaIds.size()) {
@@ -236,4 +271,6 @@ public class AreaService {
     public record UpdateAreaResponse(AreaDTO area) {}
     public record SetAreasRequest(List<String> areaIds) {}
     public record SetAreasResponse(List<AreaDTO> areas) {}
+    public record ActivityEntryDAO(String componentId, String componentName, int portIndex, String actionKey, String source, String status, long createdAt) {}
+    public record AreaActivityResponse(List<ActivityEntryDAO> entries) {}
 }

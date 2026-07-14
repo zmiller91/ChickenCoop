@@ -29,6 +29,19 @@ public class PortActionLogRepository extends AuthorizerScopedRepository<PortActi
                 .list();
     }
 
+    public List<PortActionLogEntry> findRecentByComponents(List<Component> components, int limit) {
+        if (components.isEmpty()) {
+            return List.of();
+        }
+
+        return this.query(
+                "FROM PortActionLogEntry WHERE component IN :components ORDER BY createdAt DESC",
+                PortActionLogEntry.class)
+                .setParameter("components", components)
+                .setMaxResults(limit)
+                .list();
+    }
+
     /**
      * The most recent device-confirmed (COMPLETE) entry per port, i.e. each port's last known actual on/off
      * state. Ports with no confirmed entry yet (never reported, or only REQUESTED/FAILED/CANCELLED so far)

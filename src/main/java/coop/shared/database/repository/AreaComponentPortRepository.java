@@ -30,8 +30,11 @@ public class AreaComponentPortRepository extends GenericRepository<AreaComponent
      * AreaComponentRepository.deleteByComponent.
      */
     public void deleteByComponentAndPort(String componentId, int portIndex) {
-        this.query("DELETE FROM AreaComponentPort WHERE id.componentId = :componentId AND id.portIndex = :portIndex",
-                        AreaComponentPort.class)
+        // Typed queries (this.query(..., Class)) can't be DML in Hibernate - "Update/delete queries
+        // cannot be typed" - so this goes straight through the session instead, same as the other
+        // executeUpdate() call sites in this codebase (e.g. JobRepository.updateStatus).
+        sessionFactory.getCurrentSession()
+                .createQuery("DELETE FROM AreaComponentPort WHERE id.componentId = :componentId AND id.portIndex = :portIndex")
                 .setParameter("componentId", componentId)
                 .setParameter("portIndex", portIndex)
                 .executeUpdate();
