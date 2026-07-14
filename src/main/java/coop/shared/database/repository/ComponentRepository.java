@@ -24,6 +24,16 @@ public class ComponentRepository extends AuthorizerScopedRepository<Component>  
                 .list();
     }
 
+    public Component findByCoopAndId(Coop coop, String id) {
+        return this.query("FROM Component WHERE coop = :coop AND componentId = :id", Component.class)
+                .setParameter("coop", coop)
+                .setParameter("id", id)
+                .list()
+                .stream()
+                .findFirst()
+                .orElse(null);
+    }
+
     public Component findBySerialNumber(Coop coop, ComponentSerial serial) {
         return this.query(
             """
