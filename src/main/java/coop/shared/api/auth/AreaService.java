@@ -22,6 +22,7 @@ import org.springframework.transaction.annotation.EnableTransactionManagement;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.ArrayList;
 import java.util.List;
 
 @EnableTransactionManagement
@@ -157,6 +158,49 @@ public class AreaService {
      * Same as setComponentAreas, but for a single port on a multi-port device (e.g. one of a valve's zones) -
      * independent of whatever areas the parent component itself belongs to.
      */
+    /**
+     * Same as setComponentAreas, but for every component in one request/transaction - lets a caller with N
+     * components to update (e.g. the Edit page's membership save) avoid N separate calls, which previously had
+     * to be sequenced client-side to dodge a MySQL/InnoDB deadlock (concurrent transactions all inserting into
+     * area_component against the same Area row via implicit FK locking). A single transaction serializes its
+     * own writes, so the deadlock doesn't apply here regardless of assignment order.
+     */
+    @PutMapping("{coopId}/components/bulk")
+    public BulkSetAreasResponse setComponentAreasBulk(@PathVariable("coopId") String coopId,
+                                                        @RequestBody BulkSetAreasRequest request) {
+        Coop coop = coopRepository.findById(userContext.getCurrentUser(), coopId);
+        if (coop == null) {
+            throw new NotFound("Coop not found.");
+        }
+
+        List<BulkAreaAssignmentResult> results = new ArrayList<>();
+
+        for (ComponentAreaAssignment assignment : request.assignments()) {
+            Component component = componentRepository.findById(userContext.getCurrentUser(), assignment.componentId());
+            if (component == null || !component.getCoop().equals(coop)) {
+                throw new NotFound("Component not found: " + assignment.componentId());
+            }
+
+            List<Area> areas = resolveAreas(coop, assignment.areaIds());
+
+            areaComponentRepository.deleteByComponent(component);
+            areaComponentRepository.flush();
+
+            for (Area area : areas) {
+                AreaComponent link = new AreaComponent();
+                link.setArea(area);
+                link.setComponent(component);
+                areaComponentRepository.persist(link);
+            }
+
+            results.add(new BulkAreaAssignmentResult(
+                    component.getComponentId(),
+                    areas.stream().map(AreaService::toDTO).toList()));
+        }
+
+        return new BulkSetAreasResponse(results);
+    }
+
     @PutMapping("{coopId}/components/{componentId}/ports/{portIndex}")
     public SetAreasResponse setPortAreas(@PathVariable("coopId") String coopId,
                                           @PathVariable("componentId") String componentId,
@@ -273,4 +317,8 @@ public class AreaService {
     public record SetAreasResponse(List<AreaDTO> areas) {}
     public record ActivityEntryDAO(String componentId, String componentName, int portIndex, String actionKey, String source, String status, long createdAt) {}
     public record AreaActivityResponse(List<ActivityEntryDAO> entries) {}
+    public record ComponentAreaAssignment(String componentId, List<String> areaIds) {}
+    public record BulkSetAreasRequest(List<ComponentAreaAssignment> assignments) {}
+    public record BulkAreaAssignmentResult(String componentId, List<AreaDTO> areas) {}
+    public record BulkSetAreasResponse(List<BulkAreaAssignmentResult> results) {}
 }
