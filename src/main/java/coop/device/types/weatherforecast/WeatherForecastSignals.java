@@ -9,8 +9,11 @@ import lombok.Getter;
  * anything reported by physical hardware over serial.
  *
  * Two different shapes of signal, dispatched differently by WeatherForecastFetcher:
- *  - RAIN_PROBABILITY_24H/RAIN_AMOUNT_24H are windowed aggregates (max/sum over the next 24h) - built for
- *    gating a rule, e.g. "skip today's watering if enough rain is forecast."
+ *  - RAIN_PROBABILITY_24H/RAIN_AMOUNT_24H are forward-looking windowed aggregates (max/sum over the *next*
+ *    24h, from Open-Meteo's forecast) - built for gating a rule, e.g. "skip today's watering if enough rain
+ *    is forecast." RAIN_ACTUAL_24H is the backward-looking counterpart (sum over the *past* 24h, from
+ *    Open-Meteo's past_days data) - answers "did it actually rain," e.g. "skip watering if it already rained
+ *    enough," which a forecast alone can't tell you after the fact.
  *  - Everything else is a point-in-time snapshot (the nearest hour's value) - built for building a historical
  *    time series to feed to future analysis, not for gating anything over a window.
  */
@@ -19,6 +22,7 @@ public enum WeatherForecastSignals {
 
     RAIN_PROBABILITY_24H,
     RAIN_AMOUNT_24H,
+    RAIN_ACTUAL_24H,
 
     TEMPERATURE,
     HUMIDITY,
@@ -26,7 +30,8 @@ public enum WeatherForecastSignals {
     CLOUD_COVER,
     EVAPOTRANSPIRATION,
     DEW_POINT,
-    UV_INDEX;
+    UV_INDEX,
+    SOLAR_RADIATION;
 
     private final RuleSignal signal;
     WeatherForecastSignals() {
