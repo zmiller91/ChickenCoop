@@ -235,6 +235,52 @@ public class AreaService {
         return new SetAreasResponse(areas.stream().map(AreaService::toDTO).toList());
     }
 
+    /**
+     * Same as setComponentAreasBulk, but for ports - lets a caller with N port assignments to update (e.g.
+     * a Garden Bed's edit page saving its irrigation-zone associations) avoid N separate calls for the same
+     * deadlock-avoidance reason.
+     */
+    @PutMapping("{coopId}/components/ports/bulk")
+    public BulkSetPortAreasResponse setPortAreasBulk(@PathVariable("coopId") String coopId,
+                                                       @RequestBody BulkSetPortAreasRequest request) {
+        Coop coop = coopRepository.findById(userContext.getCurrentUser(), coopId);
+        if (coop == null) {
+            throw new NotFound("Coop not found.");
+        }
+
+        List<BulkPortAreaAssignmentResult> results = new ArrayList<>();
+
+        for (PortAreaAssignment assignment : request.assignments()) {
+            Component component = componentRepository.findByCoopAndId(coop, assignment.componentId());
+            if (component == null) {
+                throw new NotFound("Component not found: " + assignment.componentId());
+            }
+
+            List<Area> areas = resolveAreas(coop, assignment.areaIds());
+
+            areaComponentPortRepository.deleteByComponentAndPort(assignment.componentId(), assignment.portIndex());
+            areaComponentPortRepository.flush();
+
+            for (Area area : areas) {
+                AreaComponentPort link = new AreaComponentPort();
+                AreaComponentPortId id = new AreaComponentPortId();
+                id.setAreaId(area.getId());
+                id.setComponentId(assignment.componentId());
+                id.setPortIndex(assignment.portIndex());
+                link.setId(id);
+                link.setArea(area);
+                areaComponentPortRepository.persist(link);
+            }
+
+            results.add(new BulkPortAreaAssignmentResult(
+                    assignment.componentId(),
+                    assignment.portIndex(),
+                    areas.stream().map(AreaService::toDTO).toList()));
+        }
+
+        return new BulkSetPortAreasResponse(results);
+    }
+
     @GetMapping("{coopId}/{areaId}/activity")
     public AreaActivityResponse activity(@PathVariable("coopId") String coopId, @PathVariable("areaId") String areaId) {
         Coop coop = coopRepository.findById(userContext.getCurrentUser(), coopId);
@@ -321,4 +367,8 @@ public class AreaService {
     public record BulkSetAreasRequest(List<ComponentAreaAssignment> assignments) {}
     public record BulkAreaAssignmentResult(String componentId, List<AreaDTO> areas) {}
     public record BulkSetAreasResponse(List<BulkAreaAssignmentResult> results) {}
+    public record PortAreaAssignment(String componentId, int portIndex, List<String> areaIds) {}
+    public record BulkSetPortAreasRequest(List<PortAreaAssignment> assignments) {}
+    public record BulkPortAreaAssignmentResult(String componentId, int portIndex, List<AreaDTO> areas) {}
+    public record BulkSetPortAreasResponse(List<BulkPortAreaAssignmentResult> results) {}
 }
