@@ -28,15 +28,18 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.EnableTransactionManagement;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
+import software.amazon.awssdk.core.SdkBytes;
 import software.amazon.awssdk.services.ses.SesClient;
 import software.amazon.awssdk.services.ses.model.*;
 
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -45,6 +48,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.TreeSet;
+import java.util.UUID;
 import java.util.stream.Stream;
 
 @EnableTransactionManagement
@@ -423,8 +427,34 @@ public class AreaService {
         List<MetricRepository.HourlyMetricRow> metricRows =
                 metricRepository.findHourlyByComponents(coop, new ArrayList<>(fullMemberComponents), sinceEpoch);
 
+        // A component that's a full member of an ANCESTOR area (e.g. an irrigation controller tied to the
+        // whole Garden) can have individual ports separately linked to sibling areas (e.g. a different
+        // Garden Bed's own zone). Without this, "whole component" event lookup below would pull in every
+        // sibling's port activity too, just because they happen to share the same device further up the
+        // tree. Exclude any port that's specifically assigned to an area outside this export's own lineage.
+        Set<String> lineageAreaIds = new LinkedHashSet<>();
+        lineage.forEach(a -> lineageAreaIds.add(a.getId()));
+
+        Map<String, Set<Integer>> excludedPortsByComponent = new LinkedHashMap<>();
+        for (Component component : fullMemberComponents) {
+            Set<Integer> excluded = new LinkedHashSet<>();
+            for (AreaComponentPort link : areaComponentPortRepository.findByComponentId(component.getComponentId())) {
+                if (!lineageAreaIds.contains(link.getArea().getId())) {
+                    excluded.add(link.getId().getPortIndex());
+                }
+            }
+            if (!excluded.isEmpty()) {
+                excludedPortsByComponent.put(component.getComponentId(), excluded);
+            }
+        }
+
         List<PortActionLogEntry> events = new ArrayList<>(
-                portActionLogRepository.findSinceByComponents(new ArrayList<>(fullMemberComponents), sinceEpoch));
+                portActionLogRepository.findSinceByComponents(new ArrayList<>(fullMemberComponents), sinceEpoch).stream()
+                        .filter(e -> {
+                            Set<Integer> excluded = excludedPortsByComponent.get(e.getComponent().getComponentId());
+                            return excluded == null || !excluded.contains(e.getPortIndex());
+                        })
+                        .toList());
 
         for (Map.Entry<String, Set<Integer>> entry : portMemberships.entrySet()) {
             Component component = componentRepository.findByCoopAndId(coop, entry.getKey());
@@ -482,20 +512,57 @@ public class AreaService {
             throw new RuntimeException("Failed to serialize area export.", e);
         }
 
-        log.info("Payload size: " + json.length());
+        // The full JSON dump used to go straight in the email body, which reads as spam-bait to most mail
+        // providers (a wall of raw JSON with no readable text). It goes as an attachment instead, with a
+        // short human-readable body describing what was requested and when.
+        DateTimeFormatter requestedAtFormat = DateTimeFormatter.ofPattern("h:mm a 'on' MMMM d, yyyy");
+        String requestedAt = Instant.now().atZone(zone).format(requestedAtFormat);
+        String bodyText = "Log request: " + area.getName() + " at " + requestedAt + ".";
+        String attachmentFilename = slug(area.getName()) + "-logs.json";
 
-        SendEmailRequest emailRequest = SendEmailRequest.builder()
-                .source("alerts@gnomelyhq.com")
-                .destination(Destination.builder().toAddresses(contact.getEmail()).build())
-                .message(Message.builder()
-                        .subject(Content.builder().data(area.getName() + " Logs").charset("UTF-8").build())
-                        .body(Body.builder().text(Content.builder().data(json).charset("UTF-8").build()).build())
-                        .build())
+        SendRawEmailResponse response = sendExportEmail(contact.getEmail(), area.getName() + " Logs", bodyText, attachmentFilename, json);
+        log.info("Sent area export email, message id: " + response.messageId());
+    }
+
+    /**
+     * SES's simple SendEmail API has no concept of attachments - only SendRawEmail (a hand-built MIME
+     * message) supports them, hence building this by hand rather than pulling in a mail library just for
+     * this one multipart message.
+     */
+    private SendRawEmailResponse sendExportEmail(String toAddress, String subject, String bodyText,
+                                                  String attachmentFilename, String attachmentJson) {
+        String boundary = "----=_Part_" + UUID.randomUUID();
+        String base64Attachment = Base64.getEncoder().encodeToString(attachmentJson.getBytes(StandardCharsets.UTF_8));
+
+        String raw = "From: alerts@gnomelyhq.com\r\n" +
+                "To: " + toAddress + "\r\n" +
+                "Subject: " + subject + "\r\n" +
+                "MIME-Version: 1.0\r\n" +
+                "Content-Type: multipart/mixed; boundary=\"" + boundary + "\"\r\n" +
+                "\r\n" +
+                "--" + boundary + "\r\n" +
+                "Content-Type: text/plain; charset=\"UTF-8\"\r\n" +
+                "\r\n" +
+                bodyText + "\r\n" +
+                "\r\n" +
+                "--" + boundary + "\r\n" +
+                "Content-Type: application/json; name=\"" + attachmentFilename + "\"\r\n" +
+                "Content-Disposition: attachment; filename=\"" + attachmentFilename + "\"\r\n" +
+                "Content-Transfer-Encoding: base64\r\n" +
+                "\r\n" +
+                base64Attachment + "\r\n" +
+                "--" + boundary + "--\r\n";
+
+        SendRawEmailRequest emailRequest = SendRawEmailRequest.builder()
+                .rawMessage(RawMessage.builder().data(SdkBytes.fromUtf8String(raw)).build())
                 .build();
 
-        log.info("Sending email...");
-        SendEmailResponse response = ses.sendEmail(emailRequest);
-        log.info("Response: " + response.messageId());
+        return ses.sendRawEmail(emailRequest);
+    }
+
+    private static String slug(String value) {
+        String slug = value.toLowerCase().replaceAll("[^a-z0-9]+", "-").replaceAll("(^-|-$)", "");
+        return slug.isEmpty() ? "area" : slug;
     }
 
     private List<Area> resolveAreas(Coop coop, List<String> areaIds) {
