@@ -1,5 +1,6 @@
 package coop.shared.database.repository;
 
+import coop.shared.database.table.Area;
 import coop.shared.database.table.AreaComponentPort;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.EnableTransactionManagement;
@@ -22,6 +23,12 @@ public class AreaComponentPortRepository extends GenericRepository<AreaComponent
                         AreaComponentPort.class)
                 .setParameter("componentId", componentId)
                 .setParameter("portIndex", portIndex)
+                .list();
+    }
+
+    public List<AreaComponentPort> findByArea(Area area) {
+        return this.query("FROM AreaComponentPort WHERE area = :area", AreaComponentPort.class)
+                .setParameter("area", area)
                 .list();
     }
 

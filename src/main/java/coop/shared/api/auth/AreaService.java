@@ -23,7 +23,9 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
+import java.util.stream.Stream;
 
 @EnableTransactionManagement
 @Transactional
@@ -297,7 +299,24 @@ public class AreaService {
                 .map(AreaComponent::getComponent)
                 .toList();
 
-        List<PortActionLogEntry> entries = portActionLogRepository.findRecentByComponents(components, 20);
+        List<PortActionLogEntry> componentEntries = portActionLogRepository.findRecentByComponents(components, 20);
+
+        // A device's individual port (e.g. one of a valve's zones) can be linked to an area on its own,
+        // independent of whether the whole component is a member - gathered separately since it isn't
+        // covered by the AreaComponent-based lookup above.
+        List<PortActionLogEntry> portEntries = areaComponentPortRepository.findByArea(area).stream()
+                .flatMap(link -> {
+                    Component portComponent = componentRepository.findByCoopAndId(coop, link.getId().getComponentId());
+                    return portComponent == null
+                            ? Stream.<PortActionLogEntry>empty()
+                            : portActionLogRepository.findRecent(portComponent, link.getId().getPortIndex(), 20).stream();
+                })
+                .toList();
+
+        List<PortActionLogEntry> entries = Stream.concat(componentEntries.stream(), portEntries.stream())
+                .sorted(Comparator.comparingLong(PortActionLogEntry::getCreatedAt).reversed())
+                .limit(30)
+                .toList();
 
         return new AreaActivityResponse(entries.stream()
                 .map(e -> new ActivityEntryDAO(
