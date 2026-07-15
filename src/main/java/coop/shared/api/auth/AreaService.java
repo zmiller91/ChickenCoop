@@ -482,6 +482,8 @@ public class AreaService {
             throw new RuntimeException("Failed to serialize area export.", e);
         }
 
+        log.info("Payload size: " + json.length());
+
         SendEmailRequest emailRequest = SendEmailRequest.builder()
                 .source("alerts@gnomelyhq.com")
                 .destination(Destination.builder().toAddresses(contact.getEmail()).build())
