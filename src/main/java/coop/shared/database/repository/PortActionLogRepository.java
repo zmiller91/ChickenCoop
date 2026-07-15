@@ -29,6 +29,37 @@ public class PortActionLogRepository extends AuthorizerScopedRepository<PortActi
                 .list();
     }
 
+    /**
+     * Every entry for a single port since an epoch, unlimited - unlike findRecent, which caps at a
+     * small count for a UI preview, an export needs the full history over its window.
+     */
+    public List<PortActionLogEntry> findSince(Component component, int portIndex, long sinceEpoch) {
+        return this.query(
+                "FROM PortActionLogEntry WHERE component = :component AND portIndex = :portIndex " +
+                "AND createdAt >= :since ORDER BY createdAt ASC",
+                PortActionLogEntry.class)
+                .setParameter("component", component)
+                .setParameter("portIndex", portIndex)
+                .setParameter("since", sinceEpoch)
+                .list();
+    }
+
+    /**
+     * Every entry (any port) for a set of components since an epoch, unlimited - see findSince.
+     */
+    public List<PortActionLogEntry> findSinceByComponents(List<Component> components, long sinceEpoch) {
+        if (components.isEmpty()) {
+            return List.of();
+        }
+
+        return this.query(
+                "FROM PortActionLogEntry WHERE component IN :components AND createdAt >= :since ORDER BY createdAt ASC",
+                PortActionLogEntry.class)
+                .setParameter("components", components)
+                .setParameter("since", sinceEpoch)
+                .list();
+    }
+
     public List<PortActionLogEntry> findRecentByComponents(List<Component> components, int limit) {
         if (components.isEmpty()) {
             return List.of();

@@ -118,6 +118,40 @@ public class MetricRepository extends AuthorizerScopedRepository<CoopMetric> {
         return new ArrayList<>(groupedData.values());
     }
 
+    /**
+     * Hourly-averaged readings for a set of components since an epoch, across every metric they report -
+     * the building block for an area data export, where "every metric available" for whatever components
+     * are in scope needs to come back without the caller having to know their names up front.
+     */
+    public List<HourlyMetricRow> findHourlyByComponents(Coop coop, List<Component> components, long sinceEpoch) {
+        if (components.isEmpty()) {
+            return List.of();
+        }
+
+        List<String> componentIds = components.stream().map(Component::getComponentId).toList();
+
+        String query = """
+                SELECT
+                    `COMPONENT_ID` AS `componentId`,
+                    CAST(`HOUR` AS CHAR) AS `hour`,
+                    `METRIC` AS `metric`,
+                    ROUND(AVG(`VALUE`), 2) as `value`
+                FROM metrics
+                WHERE `COOP_ID` = :coopId
+                AND `DT` >= :dt
+                AND `COMPONENT_ID` IN (:componentIds)
+                GROUP BY `COMPONENT_ID`, `HOUR`, `METRIC`
+                ORDER BY `HOUR` ASC;
+        """;
+
+        return sessionFactory.getCurrentSession().createNativeQuery(query)
+                .setParameter("coopId", coop.getId())
+                .setParameter("dt", sinceEpoch)
+                .setParameterList("componentIds", componentIds)
+                .setResultTransformer(new AliasToBeanResultTransformer(HourlyMetricRow.class))
+                .list();
+    }
+
     public Long getLastUpdate(Coop coop, String component) {
         String query = """
                 SELECT MAX(DT)
@@ -320,6 +354,14 @@ public class MetricRepository extends AuthorizerScopedRepository<CoopMetric> {
     public static class ComponentDataRow {
         private String componentId;
         private String date;
+        private String metric;
+        private Double value;
+    }
+
+    @Data
+    public static class HourlyMetricRow {
+        private String componentId;
+        private String hour;
         private String metric;
         private Double value;
     }

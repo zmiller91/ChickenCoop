@@ -5,6 +5,7 @@ import coop.shared.database.repository.AreaComponentRepository;
 import coop.shared.database.repository.AreaRepository;
 import coop.shared.database.repository.ComponentRepository;
 import coop.shared.database.repository.CoopRepository;
+import coop.shared.database.repository.MetricRepository;
 import coop.shared.database.repository.PortActionLogRepository;
 import coop.shared.database.table.Area;
 import coop.shared.database.table.AreaComponent;
@@ -22,9 +23,20 @@ import org.springframework.transaction.annotation.EnableTransactionManagement;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.Duration;
+import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.TreeMap;
+import java.util.TreeSet;
 import java.util.stream.Stream;
 
 @EnableTransactionManagement
@@ -53,6 +65,9 @@ public class AreaService {
 
     @Autowired
     private PortActionLogRepository portActionLogRepository;
+
+    @Autowired
+    private MetricRepository metricRepository;
 
     @GetMapping("{coopId}/list")
     public ListAreasResponse listAreas(@PathVariable("coopId") String coopId) {
@@ -330,6 +345,114 @@ public class AreaService {
                 .toList());
     }
 
+    /**
+     * Structured export of an area's metrics and device events, bucketed to the hour over a trailing
+     * window (7 days by default). Scope is this area plus its ancestors - a Garden Bed's export also
+     * carries whatever the enclosing Garden covers, but never a sibling bed's or any other descendant's
+     * data, per the acceptance criteria.
+     */
+    @GetMapping("{coopId}/{areaId}/export")
+    public AreaExportResponse export(@PathVariable("coopId") String coopId,
+                                      @PathVariable("areaId") String areaId,
+                                      @RequestParam(value = "days", defaultValue = "7") int days) {
+        Coop coop = coopRepository.findById(userContext.getCurrentUser(), coopId);
+        if (coop == null) {
+            throw new NotFound("Coop not found.");
+        }
+
+        Area area = areaRepository.findByIdAndCoop(coop, areaId);
+        if (area == null) {
+            throw new NotFound("Area not found.");
+        }
+
+        List<Area> lineage = new ArrayList<>();
+        for (Area current = area; current != null; current = current.getParent()) {
+            lineage.add(current);
+        }
+
+        Set<Component> fullMemberComponents = new LinkedHashSet<>();
+        Map<String, Set<Integer>> portMemberships = new LinkedHashMap<>();
+
+        for (Area a : lineage) {
+            areaComponentRepository.findByArea(a).forEach(link -> fullMemberComponents.add(link.getComponent()));
+
+            for (AreaComponentPort link : areaComponentPortRepository.findByArea(a)) {
+                Component component = componentRepository.findByCoopAndId(coop, link.getId().getComponentId());
+                if (component != null) {
+                    portMemberships.computeIfAbsent(component.getComponentId(), k -> new LinkedHashSet<>())
+                            .add(link.getId().getPortIndex());
+                }
+            }
+        }
+
+        Set<Component> allComponents = new LinkedHashSet<>(fullMemberComponents);
+        for (String componentId : portMemberships.keySet()) {
+            Component component = componentRepository.findByCoopAndId(coop, componentId);
+            if (component != null) {
+                allComponents.add(component);
+            }
+        }
+
+        long sinceEpoch = System.currentTimeMillis() - Duration.ofDays(days).toMillis();
+
+        List<MetricRepository.HourlyMetricRow> metricRows =
+                metricRepository.findHourlyByComponents(coop, new ArrayList<>(allComponents), sinceEpoch);
+
+        List<PortActionLogEntry> events = new ArrayList<>(
+                portActionLogRepository.findSinceByComponents(new ArrayList<>(fullMemberComponents), sinceEpoch));
+
+        for (Map.Entry<String, Set<Integer>> entry : portMemberships.entrySet()) {
+            Component component = componentRepository.findByCoopAndId(coop, entry.getKey());
+            // A full-member component's whole log is already covered above - only pull port-scoped
+            // entries for components that are linked at the port level only.
+            if (component == null || fullMemberComponents.contains(component)) {
+                continue;
+            }
+            for (int portIndex : entry.getValue()) {
+                events.addAll(portActionLogRepository.findSince(component, portIndex, sinceEpoch));
+            }
+        }
+
+        DateTimeFormatter hourFormat = DateTimeFormatter.ofPattern("yyyyMMddHH");
+        DateTimeFormatter isoFormat = DateTimeFormatter.ISO_DATE_TIME;
+        ZoneId zone = ZoneId.of("America/Chicago");
+
+        Map<String, Map<String, Map<String, Double>>> metricsByHour = new TreeMap<>();
+        for (MetricRepository.HourlyMetricRow row : metricRows) {
+            metricsByHour
+                    .computeIfAbsent(row.getHour(), k -> new LinkedHashMap<>())
+                    .computeIfAbsent(row.getComponentId(), k -> new LinkedHashMap<>())
+                    .put(row.getMetric(), row.getValue());
+        }
+
+        Map<String, List<ActivityEntryDAO>> eventsByHour = new TreeMap<>();
+        for (PortActionLogEntry e : events) {
+            String hourKey = Instant.ofEpochMilli(e.getCreatedAt()).atZone(zone).format(hourFormat);
+            eventsByHour.computeIfAbsent(hourKey, k -> new ArrayList<>())
+                    .add(new ActivityEntryDAO(
+                            e.getComponent().getComponentId(),
+                            e.getComponent().getName(),
+                            e.getPortIndex(),
+                            e.getActionKey(),
+                            e.getSource() != null ? e.getSource().name() : null,
+                            e.getStatus().name(),
+                            e.getCreatedAt()));
+        }
+
+        Set<String> hourKeys = new TreeSet<>();
+        hourKeys.addAll(metricsByHour.keySet());
+        hourKeys.addAll(eventsByHour.keySet());
+
+        List<AreaExportRow> rows = hourKeys.stream()
+                .map(hourKey -> new AreaExportRow(
+                        LocalDateTime.parse(hourKey, hourFormat).format(isoFormat),
+                        metricsByHour.getOrDefault(hourKey, Map.of()),
+                        eventsByHour.getOrDefault(hourKey, List.of())))
+                .toList();
+
+        return new AreaExportResponse(rows);
+    }
+
     private List<Area> resolveAreas(Coop coop, List<String> areaIds) {
         List<Area> areas = areaRepository.findByIdsAndCoop(coop, areaIds);
         if (areas.size() != areaIds.size()) {
@@ -382,6 +505,8 @@ public class AreaService {
     public record SetAreasResponse(List<AreaDTO> areas) {}
     public record ActivityEntryDAO(String componentId, String componentName, int portIndex, String actionKey, String source, String status, long createdAt) {}
     public record AreaActivityResponse(List<ActivityEntryDAO> entries) {}
+    public record AreaExportRow(String timestamp, Map<String, Map<String, Double>> metrics, List<ActivityEntryDAO> events) {}
+    public record AreaExportResponse(List<AreaExportRow> rows) {}
     public record ComponentAreaAssignment(String componentId, List<String> areaIds) {}
     public record BulkSetAreasRequest(List<ComponentAreaAssignment> assignments) {}
     public record BulkAreaAssignmentResult(String componentId, List<AreaDTO> areas) {}
