@@ -1,9 +1,12 @@
 package coop.shared.api.auth;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import coop.shared.database.repository.AreaComponentPortRepository;
 import coop.shared.database.repository.AreaComponentRepository;
 import coop.shared.database.repository.AreaRepository;
 import coop.shared.database.repository.ComponentRepository;
+import coop.shared.database.repository.ContactRepository;
 import coop.shared.database.repository.CoopRepository;
 import coop.shared.database.repository.MetricRepository;
 import coop.shared.database.repository.PortActionLogRepository;
@@ -12,16 +15,24 @@ import coop.shared.database.table.AreaComponent;
 import coop.shared.database.table.AreaComponentPort;
 import coop.shared.database.table.AreaComponentPortId;
 import coop.shared.database.table.AreaType;
+import coop.shared.database.table.Contact;
 import coop.shared.database.table.Coop;
 import coop.shared.database.table.component.Component;
 import coop.shared.database.table.component.PortActionLogEntry;
 import coop.shared.exception.BadRequest;
 import coop.shared.exception.NotFound;
 import coop.shared.security.AuthContext;
+import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.EnableTransactionManagement;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
+import software.amazon.awssdk.services.ses.SesClient;
+import software.amazon.awssdk.services.ses.model.Body;
+import software.amazon.awssdk.services.ses.model.Content;
+import software.amazon.awssdk.services.ses.model.Destination;
+import software.amazon.awssdk.services.ses.model.Message;
+import software.amazon.awssdk.services.ses.model.SendEmailRequest;
 
 import java.time.Duration;
 import java.time.Instant;
@@ -68,6 +79,15 @@ public class AreaService {
 
     @Autowired
     private MetricRepository metricRepository;
+
+    @Autowired
+    private ContactRepository contactRepository;
+
+    @Autowired
+    private SesClient ses;
+
+    @Autowired
+    private ObjectMapper objectMapper;
 
     @GetMapping("{coopId}/list")
     public ListAreasResponse listAreas(@PathVariable("coopId") String coopId) {
@@ -346,15 +366,15 @@ public class AreaService {
     }
 
     /**
-     * Structured export of an area's metrics and device events, bucketed to the hour over a trailing
-     * window (7 days by default). Scope is this area plus its ancestors - a Garden Bed's export also
-     * carries whatever the enclosing Garden covers, but never a sibling bed's or any other descendant's
-     * data, per the acceptance criteria.
+     * Emails a structured export of an area's metrics and device events, bucketed to the hour over a
+     * trailing window (7 days by default), to a contact's email address. Scope is this area plus its
+     * ancestors - a Garden Bed's export also carries whatever the enclosing Garden covers, but never a
+     * sibling bed's or any other descendant's data, per the acceptance criteria.
      */
-    @GetMapping("{coopId}/{areaId}/export")
-    public AreaExportResponse export(@PathVariable("coopId") String coopId,
-                                      @PathVariable("areaId") String areaId,
-                                      @RequestParam(value = "days", defaultValue = "7") int days) {
+    @PostMapping("{coopId}/{areaId}/export")
+    public void export(@PathVariable("coopId") String coopId,
+                        @PathVariable("areaId") String areaId,
+                        @RequestBody ExportRequest request) {
         Coop coop = coopRepository.findById(userContext.getCurrentUser(), coopId);
         if (coop == null) {
             throw new NotFound("Coop not found.");
@@ -364,6 +384,16 @@ public class AreaService {
         if (area == null) {
             throw new NotFound("Area not found.");
         }
+
+        Contact contact = contactRepository.findByIdAndCoop(coop, request.contactId());
+        if (contact == null) {
+            throw new NotFound("Contact not found.");
+        }
+        if (StringUtils.isEmpty(contact.getEmail())) {
+            throw new BadRequest("Contact has no email address.");
+        }
+
+        int days = request.days() != null ? request.days() : 7;
 
         List<Area> lineage = new ArrayList<>();
         for (Area current = area; current != null; current = current.getParent()) {
@@ -385,18 +415,15 @@ public class AreaService {
             }
         }
 
-        Set<Component> allComponents = new LinkedHashSet<>(fullMemberComponents);
-        for (String componentId : portMemberships.keySet()) {
-            Component component = componentRepository.findByCoopAndId(coop, componentId);
-            if (component != null) {
-                allComponents.add(component);
-            }
-        }
-
         long sinceEpoch = System.currentTimeMillis() - Duration.ofDays(days).toMillis();
 
+        // Metrics have no port dimension (the `metrics` table only keys on COMPONENT_ID + METRIC), so a
+        // port-linked-only component's readings can't be attributed to the specific port an area is
+        // actually linked to the way its events can (port_action_log does have PORT_INDEX). Left out of
+        // the metrics side of the export for now rather than guess - revisit if that granularity becomes
+        // available, or if a coarser "whole component" reading turns out to be wanted anyway.
         List<MetricRepository.HourlyMetricRow> metricRows =
-                metricRepository.findHourlyByComponents(coop, new ArrayList<>(allComponents), sinceEpoch);
+                metricRepository.findHourlyByComponents(coop, new ArrayList<>(fullMemberComponents), sinceEpoch);
 
         List<PortActionLogEntry> events = new ArrayList<>(
                 portActionLogRepository.findSinceByComponents(new ArrayList<>(fullMemberComponents), sinceEpoch));
@@ -450,7 +477,23 @@ public class AreaService {
                         eventsByHour.getOrDefault(hourKey, List.of())))
                 .toList();
 
-        return new AreaExportResponse(rows);
+        String json;
+        try {
+            json = objectMapper.writeValueAsString(new AreaExportResponse(rows));
+        } catch (JsonProcessingException e) {
+            throw new RuntimeException("Failed to serialize area export.", e);
+        }
+
+        SendEmailRequest emailRequest = SendEmailRequest.builder()
+                .source("alerts@gnomelyhq.com")
+                .destination(Destination.builder().toAddresses(contact.getEmail()).build())
+                .message(Message.builder()
+                        .subject(Content.builder().data(area.getName() + " Logs").charset("UTF-8").build())
+                        .body(Body.builder().text(Content.builder().data(json).charset("UTF-8").build()).build())
+                        .build())
+                .build();
+
+        ses.sendEmail(emailRequest);
     }
 
     private List<Area> resolveAreas(Coop coop, List<String> areaIds) {
@@ -507,6 +550,7 @@ public class AreaService {
     public record AreaActivityResponse(List<ActivityEntryDAO> entries) {}
     public record AreaExportRow(String timestamp, Map<String, Map<String, Double>> metrics, List<ActivityEntryDAO> events) {}
     public record AreaExportResponse(List<AreaExportRow> rows) {}
+    public record ExportRequest(String contactId, Integer days) {}
     public record ComponentAreaAssignment(String componentId, List<String> areaIds) {}
     public record BulkSetAreasRequest(List<ComponentAreaAssignment> assignments) {}
     public record BulkAreaAssignmentResult(String componentId, List<AreaDTO> areas) {}
