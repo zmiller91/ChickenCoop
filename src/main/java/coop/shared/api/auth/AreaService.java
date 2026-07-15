@@ -22,17 +22,14 @@ import coop.shared.database.table.component.PortActionLogEntry;
 import coop.shared.exception.BadRequest;
 import coop.shared.exception.NotFound;
 import coop.shared.security.AuthContext;
+import lombok.extern.log4j.Log4j2;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.EnableTransactionManagement;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 import software.amazon.awssdk.services.ses.SesClient;
-import software.amazon.awssdk.services.ses.model.Body;
-import software.amazon.awssdk.services.ses.model.Content;
-import software.amazon.awssdk.services.ses.model.Destination;
-import software.amazon.awssdk.services.ses.model.Message;
-import software.amazon.awssdk.services.ses.model.SendEmailRequest;
+import software.amazon.awssdk.services.ses.model.*;
 
 import java.time.Duration;
 import java.time.Instant;
@@ -54,6 +51,7 @@ import java.util.stream.Stream;
 @Transactional
 @RestController
 @RequestMapping(value = "/areas")
+@Log4j2
 public class AreaService {
 
     @Autowired
@@ -493,7 +491,9 @@ public class AreaService {
                         .build())
                 .build();
 
-        ses.sendEmail(emailRequest);
+        log.info("Sending email...");
+        SendEmailResponse response = ses.sendEmail(emailRequest);
+        log.info("Response: " + response.messageId());
     }
 
     private List<Area> resolveAreas(Coop coop, List<String> areaIds) {
