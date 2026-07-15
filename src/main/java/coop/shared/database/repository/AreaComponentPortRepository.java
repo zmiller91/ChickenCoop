@@ -32,6 +32,12 @@ public class AreaComponentPortRepository extends GenericRepository<AreaComponent
                 .list();
     }
 
+    public List<AreaComponentPort> findByComponentId(String componentId) {
+        return this.query("FROM AreaComponentPort WHERE id.componentId = :componentId", AreaComponentPort.class)
+                .setParameter("componentId", componentId)
+                .list();
+    }
+
     /**
      * Replaces the full set of areas a port belongs to in one call - same rationale as
      * AreaComponentRepository.deleteByComponent.
